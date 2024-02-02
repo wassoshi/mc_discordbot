@@ -146,7 +146,7 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
         const embed = new Discord.MessageEmbed()
-            .setTitle(`MoonCat #${tokenId} adopted`)
+            .addField('\u200b', `[MoonCat #${tokenId} Adopted](${marketplaceUrl})`)
             .setDescription(messageText)
             .addField('Marketplace', `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, true)
             .addField('Block Explorer', `${etherScanEmoji} [Etherscan](${transactionUrl})`, true)
@@ -173,7 +173,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
-    if (protocolAddress === '' || protocolAddress === null) {
+    if (protocolAddress.trim() === '' || protocolAddress === null) {
         marketplaceName = "Blur";
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
