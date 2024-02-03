@@ -19,7 +19,7 @@ const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
 const discordClient = new Discord.Client();
-const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98E0daD0386979Eb96fb1722A1A05E69';
+const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const MOONCATS_CONTRACT_ABI = [
     {
         "anonymous": false,
@@ -146,8 +146,7 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
         const embed = new Discord.MessageEmbed()
-            .addField('\u200b', `[MoonCat #${tokenId} Adopted](${marketplaceUrl})`)
-            .setDescription(messageText)
+            .setDescription(`[MoonCat #${tokenId} Adopted](${marketplaceUrl})\n${messageText}`)
             .addField('Marketplace', `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, true)
             .addField('Block Explorer', `${etherScanEmoji} [Etherscan](${transactionUrl})`, true)
             .setColor('#0099ff')
