@@ -146,7 +146,9 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
         const embed = new Discord.MessageEmbed()
-            .setDescription(`[MoonCat #${tokenId} Adopted](${marketplaceUrl})\n${messageText}`)
+            .setTitle(`MoonCat #${tokenId} Adopted`)
+            .setURL(marketplaceUrl)
+            .setDescription(messageText)
             .addField('Marketplace', `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, true)
             .addField('Block Explorer', `${etherScanEmoji} [Etherscan](${transactionUrl})`, true)
             .setColor('#0099ff')
