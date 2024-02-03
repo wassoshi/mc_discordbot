@@ -173,7 +173,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
-    if (protocolAddress.trim() === '' || protocolAddress === null) {
+    if (!protocolAddress || protocolAddress.trim() === '') {
         marketplaceName = "Blur";
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
