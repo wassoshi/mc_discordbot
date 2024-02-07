@@ -131,8 +131,8 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
-async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, marketplaceName, marketplaceUrl) {
-    console.log("sendToDiscord called", { tokenId });
+async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, marketplaceName, marketplaceUrl, fromAddress, toAddress) {
+    console.log(`Sending sale announcement to Discord. Token ID: ${tokenId}, fromAddress: ${fromAddress}, toAddress: ${toAddress}`);
 
     try {
         const channel = await discordClient.channels.fetch(DISCORD_CHANNEL_ID);
@@ -146,9 +146,11 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
         const embed = new Discord.MessageEmbed()
-            .setTitle(`MoonCat #${tokenId} Adopted`)
+            .setTitle(`MoonCat #${tokenId}`)
             .setURL(marketplaceUrl)
             .setDescription(messageText)
+            .addField('From', fromAddress)
+            .addField('To', toAddress)
             .addField('Marketplace', `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, true)
             .addField('Block Explorer', `${etherScanEmoji} [Etherscan](${transactionUrl})`, true)
             .setColor('#0099ff')
@@ -162,8 +164,13 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
     }
 }
 
-async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress) {
-    
+async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, fromAddress, toAddress) {
+    console.log(`Announcing MoonCat sale. Token ID: ${tokenId}, fromAddress: ${fromAddress}, toAddress: ${toAddress}`);
+    if (!fromAddress || !toAddress) {
+        console.error(`Missing address information. fromAddress: ${fromAddress}, toAddress: ${toAddress}`);
+        return;
+    }
+
     const ethToUsdRate = await getEthToUsdConversionRate();
     const formattedEthPrice = formatEthPrice(ethPrice);
     const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
@@ -180,11 +187,11 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     }
 
     if (moonCatImageBuffer) {
-        let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} picked up for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted for ${formattedEthPrice} ${currency} ($${usdPrice})`;
         console.log("Message text:", messageText);
 
         console.log("Calling sendToDiscord from announceMoonCatSale", { tokenId });
-        await sendToDiscord(tokenId, messageText, moonCatImageBuffer, transactionUrl, marketplaceName, marketplaceUrl);
+        await sendToDiscord(tokenId, messageText, moonCatImageBuffer, transactionUrl, marketplaceName, marketplaceUrl, fromAddress, toAddress);
     } else {
         console.error('Failed to get MoonCat image for tokenId:', tokenId);
     }
@@ -208,10 +215,8 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
         }
 
         const saleEvent = data.asset_events.find(event =>
-            event.nft &&
-            event.nft.identifier.toString() === tokenId.toString() &&
-            event.seller &&
-            event.seller.toLowerCase() === sellerAddress.toLowerCase()
+            event.nft && event.nft.identifier.toString() === tokenId.toString() &&
+            event.seller && event.seller.address.toLowerCase() === sellerAddress.toLowerCase()
         );
 
         console.log("Found Sale Event:", JSON.stringify(saleEvent));
@@ -226,18 +231,20 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
                 return null;
             }
 
+            const fromAddress = saleEvent.seller.address;
+            const toAddress = saleEvent.winner_account.address;
             const isWETH = paymentToken.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
             const currency = isWETH ? 'WETH' : 'ETH';
             const ethPrice = saleEvent.payment.quantity / (10 ** saleEvent.payment.decimals);
             const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
-            console.log(`Fetched sale data from OpenSea: ${JSON.stringify(saleEvent)}`);
+            console.log(`Sale data extracted: fromAddress: ${fromAddress}, toAddress: ${toAddress}, ethPrice: ${ethPrice}, transactionUrl: ${transactionUrl}`);
             return {
                 tokenId,
+                fromAddress,
+                toAddress,
                 ethPrice,
                 transactionUrl: `https://etherscan.io/tx/${saleEvent.transaction}`,
                 payment: saleEvent.payment,
-                fromAddress: saleEvent.seller,
-                toAddress: saleEvent.buyer,
                 protocolAddress: saleEvent.protocol_address,
                 saleSellerAddress: sellerAddress
             };
