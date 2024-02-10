@@ -164,7 +164,7 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
     }
 }
 
-async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress) {
+async function announceMoonCatSale(saleData) {
     
     const { tokenId, ethPrice, transactionUrl, payment, fromAddress, toAddress, protocolAddress } = saleData; 
     const ethToUsdRate = await getEthToUsdConversionRate();
@@ -174,8 +174,6 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
     const moonCatImageBuffer = await getMoonCatImageBuffer(tokenId);
     const currency = paymentToken.symbol;
-    let marketplaceName = "OpenSea";
-    let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
     let marketplaceName, marketplaceUrl;
     if (protocolAddress && protocolAddress.trim() !== '') {
