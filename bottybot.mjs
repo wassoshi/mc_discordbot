@@ -131,8 +131,8 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
-async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, marketplaceName, marketplaceUrl, fromAddress, toAddress) {
-    console.log("sendToDiscord called", { tokenId, fromAddress, toAddress, marketplaceName, marketplaceUrl });
+async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, marketplaceName, marketplaceUrl) {
+    console.log("sendToDiscord called", { tokenId });
 
     try {
         const channel = await discordClient.channels.fetch(DISCORD_CHANNEL_ID);
@@ -149,8 +149,6 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
             .setTitle(`MoonCat #${tokenId} Adopted`)
             .setURL(marketplaceUrl)
             .setDescription(messageText)
-            .addField('Seller', fromAddress, true)
-            .addField('Buyer', toAddress, true) 
             .addField('Marketplace', `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, true)
             .addField('Block Explorer', `${etherScanEmoji} [Etherscan](${transactionUrl})`, true)
             .setColor('#0099ff')
@@ -164,9 +162,8 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
     }
 }
 
-async function announceMoonCatSale(saleData) {
+async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress) {
     
-    const { tokenId, ethPrice, transactionUrl, payment, fromAddress, toAddress, protocolAddress } = saleData; 
     const ethToUsdRate = await getEthToUsdConversionRate();
     const formattedEthPrice = formatEthPrice(ethPrice);
     const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
@@ -174,21 +171,20 @@ async function announceMoonCatSale(saleData) {
     const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
     const moonCatImageBuffer = await getMoonCatImageBuffer(tokenId);
     const currency = paymentToken.symbol;
+    let marketplaceName = "OpenSea";
+    let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
-    let marketplaceName, marketplaceUrl;
-    if (protocolAddress && protocolAddress.trim() !== '') {
-        marketplaceName = "OpenSea";
-        marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
-    } else {
+    if (!protocolAddress || protocolAddress.trim() === '') {
         marketplaceName = "Blur";
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
 
     if (moonCatImageBuffer) {
         let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} picked up for ${formattedEthPrice} ${currency} ($${usdPrice})`;
-        console.log("Preparing to call sendToDiscord with", { tokenId, fromAddress, toAddress });
+        console.log("Message text:", messageText);
 
-       await sendToDiscord(tokenId, messageText, moonCatImageBuffer, transactionUrl, marketplaceName, marketplaceUrl, fromAddress, toAddress);
+        console.log("Calling sendToDiscord from announceMoonCatSale", { tokenId });
+        await sendToDiscord(tokenId, messageText, moonCatImageBuffer, transactionUrl, marketplaceName, marketplaceUrl);
     } else {
         console.error('Failed to get MoonCat image for tokenId:', tokenId);
     }
