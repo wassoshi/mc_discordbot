@@ -202,7 +202,7 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
         const response = await fetch(openseaAPIUrl, { headers });
         const data = await response.json();
 
-        if (!data || !Array.isArray(data.asset_events)) {
+        if (!data || !Array.isArray(data.asset_events) || data.asset_events.length === 0) {
             console.error('Invalid response structure from OpenSea:', data);
             return null;
         }
@@ -210,21 +210,19 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
         const saleEvent = data.asset_events.find(event =>
             event.nft &&
             event.nft.identifier.toString() === tokenId.toString() &&
-            event.seller &&
-            event.seller.toLowerCase() === sellerAddress.toLowerCase()
+            event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() &&
+            event.buyer
         );
 
-        console.log("Found Sale Event:", JSON.stringify(saleEvent));
-        console.log("Sale Event Addresses - Seller:", saleEvent?.seller, "Buyer:", saleEvent?.buyer);
+        if (!saleEvent) {
+            console.log(`No sale event found for tokenId ${tokenId} with seller ${sellerAddress}`);
+            return null;
+        }
 
-        if (saleEvent && saleEvent.payment && saleEvent.transaction) {
-            const paymentToken = saleEvent.payment.token_address ? saleEvent.payment.token_address : undefined;
-
-            console.log("Payment Token Address:", paymentToken);
-            if (!paymentToken) {
-                console.error('Payment token address is undefined in sale event');
-                return null;
-            }
+        if (!saleEvent.seller || !saleEvent.buyer || !saleEvent.payment || !saleEvent.transaction) {
+            console.error('Sale event is missing required data:', saleEvent);
+            return null;
+        }
 
             const isWETH = paymentToken.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
             const currency = isWETH ? 'WETH' : 'ETH';
