@@ -224,30 +224,28 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
             return null;
         }
 
-            const isWETH = paymentToken.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-            const currency = isWETH ? 'WETH' : 'ETH';
-            const ethPrice = saleEvent.payment.quantity / (10 ** saleEvent.payment.decimals);
-            const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
-            console.log(`Fetched sale data from OpenSea: ${JSON.stringify(saleEvent)}`);
-            return {
-                tokenId,
-                ethPrice,
-                transactionUrl: `https://etherscan.io/tx/${saleEvent.transaction}`,
-                payment: saleEvent.payment,
-                fromAddress: saleEvent.seller,
-                toAddress: saleEvent.buyer,
-                protocolAddress: saleEvent.protocol_address,
-                saleSellerAddress: sellerAddress
-            };
-        } else {
-            console.log(`No sale event found for tokenId ${tokenId}`);
-            return null;
-        }
+        const paymentToken = saleEvent.payment.token_address; // This line seemed to be missing before the isWETH check
+        const isWETH = paymentToken && paymentToken.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+        const currency = isWETH ? 'WETH' : 'ETH';
+        const ethPrice = saleEvent.payment.quantity / (10 ** saleEvent.payment.decimals);
+        const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
+        console.log(`Fetched sale data from OpenSea: ${JSON.stringify(saleEvent)}`);
+        return {
+            tokenId,
+            ethPrice,
+            transactionUrl: `https://etherscan.io/tx/${saleEvent.transaction}`,
+            payment: saleEvent.payment,
+            fromAddress: saleEvent.seller,
+            toAddress: saleEvent.buyer,
+            protocolAddress: saleEvent.protocol_address,
+            saleSellerAddress: sellerAddress
+        };
     } catch (error) {
         console.error('Error fetching sale data from OpenSea:', error);
         return null;
     }
 }
+
 
 async function processSalesQueue() {
     console.log("Started processing sales queue.");
