@@ -18,7 +18,8 @@ const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
-const discordClient = new Discord.Client();
+const discordClient = new Discord.Client({ intents: ["GUILDS", "GUILD_MESSAGES"] });
+
 const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const MOONCATS_CONTRACT_ABI = [
     {
@@ -32,24 +33,31 @@ const MOONCATS_CONTRACT_ABI = [
         "type": "event"
     }
 ];
+
 const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
 const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
 const IMAGE_CONTRACT_ABI = [
     {
-    "inputs": [
-        {"internalType": "uint256", "name": "rescueOrder", "type": "uint256"},
-        {"internalType": "bool", "name": "glow", "type": "bool"}
-    ],
-    "name": "imageOf",
-    "outputs": [{"internalType": "string", "name": "", "type": "string"}],
-    "stateMutability": "view",
-    "type": "function"
+        "inputs": [
+            {"internalType": "uint256", "name": "rescueOrder", "type": "uint256"},
+            {"internalType": "bool", "name": "glow", "type": "bool"}
+        ],
+        "name": "imageOf",
+        "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
     }
 ];
 
-discordClient.on('ready', () => {
+const PROTOCOL_ADDRESS_MAPPING = {
+    '0x0000000000000068f116a894984e2db1123eb395': 'OpenSea',
+    '': 'Blur' // Blur's protocol address is empty
+    // Add more known protocol addresses as needed
+};
+
+discordClient.once('ready', () => {
     console.log(`Logged in as ${discordClient.user.tag}!`);
 });
 
@@ -73,7 +81,6 @@ async function getMoonCatImageBuffer(tokenId) {
         return null;
     }
 }
-
 
 async function getEthToUsdConversionRate() {
     const currentTime = Date.now();
@@ -155,7 +162,7 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
             .attachFiles([fileAttachment])
             .setImage('attachment://mooncat.png');
 
-        await channel.send(embed);
+        await channel.send({ embeds: [embed] });
         console.log("Sale announcement sent successfully.");
     } catch (error) {
         console.error('Error sending sale announcement to Discord:', error);
@@ -163,7 +170,6 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
 }
 
 async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress) {
-    
     const ethToUsdRate = await getEthToUsdConversionRate();
     const formattedEthPrice = formatEthPrice(ethPrice);
     const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
@@ -171,13 +177,16 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
     const moonCatImageBuffer = await getMoonCatImageBuffer(tokenId);
     const currency = paymentToken.symbol;
-    let marketplaceName = "OpenSea";
+
+    // Determine the marketplace using the protocol address mapping
+    let marketplaceName = PROTOCOL_ADDRESS_MAPPING[protocolAddress.toLowerCase()] || 'Unknown Marketplace';
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
-    if (!protocolAddress || protocolAddress.trim() === '') {
-        marketplaceName = "Blur";
+    if (marketplaceName === 'Blur') {
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
-    }
+    } else if (marketplaceName === 'OpenSea') {
+        marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
+    } // Add more conditions as needed for other marketplaces
 
     if (moonCatImageBuffer) {
         let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} picked up for ${formattedEthPrice} ${currency} ($${usdPrice})`;
@@ -224,17 +233,16 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
             return null;
         }
 
-        const paymentToken = saleEvent.payment.token_address; // This line seemed to be missing before the isWETH check
-        const isWETH = paymentToken && paymentToken.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+        const isWETH = saleEvent.payment.token_address.toLowerCase() === '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
         const currency = isWETH ? 'WETH' : 'ETH';
-        const ethPrice = saleEvent.payment.quantity / (10 ** saleEvent.payment.decimals);
+        const ethPrice = parseFloat(saleEvent.payment.quantity) / (10 ** saleEvent.payment.decimals);
         const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
         console.log(`Fetched sale data from OpenSea: ${JSON.stringify(saleEvent)}`);
         return {
             tokenId,
             ethPrice,
-            transactionUrl: `https://etherscan.io/tx/${saleEvent.transaction}`,
-            payment: saleEvent.payment,
+            transactionUrl,
+            payment: { ...saleEvent.payment, symbol: currency },
             fromAddress: saleEvent.seller,
             toAddress: saleEvent.buyer,
             protocolAddress: saleEvent.protocol_address,
@@ -245,7 +253,6 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
         return null;
     }
 }
-
 
 async function processSalesQueue() {
     console.log("Started processing sales queue.");
@@ -264,7 +271,6 @@ async function processSalesQueue() {
                     saleData.ethPrice, 
                     saleData.transactionUrl,
                     saleData.payment,
-                    saleData.currency,
                     saleData.protocolAddress
                 );
             } else {
