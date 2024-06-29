@@ -189,7 +189,8 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
         return;
     }
 
-    const currency = paymentToken.symbol;
+    const isWETH = paymentToken && paymentToken.token_address.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+    const currency = isWETH ? 'WETH' : 'ETH';
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
