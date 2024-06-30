@@ -189,8 +189,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
         return;
     }
 
-    const isWETH = paymentToken && paymentToken.token_address.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-    const currency = isWETH ? 'WETH' : 'ETH';
+    const currency = paymentToken.symbol; // Use the symbol provided by the OpenSea response
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
@@ -240,17 +239,15 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
             return null;
         }
 
-        const paymentToken = saleEvent.payment.token_address;
-        const isWETH = paymentToken && paymentToken.toLowerCase() === '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-        const currency = isWETH ? 'WETH' : 'ETH';
-        const ethPrice = saleEvent.payment.quantity / (10 ** saleEvent.payment.decimals);
+        const paymentToken = saleEvent.payment;
+        const ethPrice = paymentToken.quantity / (10 ** paymentToken.decimals);
         const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
         console.log(`Fetched sale data from OpenSea: ${JSON.stringify(saleEvent)}`);
         return {
             tokenId,
             ethPrice,
             transactionUrl,
-            payment: { ...saleEvent.payment, symbol: currency },
+            payment: paymentToken,
             fromAddress: saleEvent.seller,
             toAddress: saleEvent.buyer,
             protocolAddress: saleEvent.protocol_address,
