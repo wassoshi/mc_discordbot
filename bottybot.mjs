@@ -1,5 +1,5 @@
 import Web3 from 'web3';
-import Discord from 'discord.js';
+import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -14,11 +14,13 @@ const __dirname = path.dirname(__filename);
 const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
-const discordClient = new Discord.Client();
+const app = express();
+
+app.use(express.json());
 
 const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const MOONCATS_CONTRACT_ABI = [
@@ -49,12 +51,6 @@ const IMAGE_CONTRACT_ABI = [
         "type": "function"
     }
 ];
-
-discordClient.on('ready', () => {
-    console.log(`Logged in as ${discordClient.user.tag}!`);
-});
-
-discordClient.login(DISCORD_BOT_TOKEN);
 
 async function getMoonCatImageBuffer(tokenId) {
     const imageContractAddress = '0xB39C61fe6281324A23e079464f7E697F8Ba6968f';
@@ -140,27 +136,45 @@ async function sendToDiscord(tokenId, messageText, imageBuffer, transactionUrl, 
     }
 
     try {
-        const channel = await discordClient.channels.fetch(DISCORD_CHANNEL_ID);
-        if (!channel) {
-            console.error('Could not find the Discord channel with ID:', DISCORD_CHANNEL_ID);
-            return;
-        }
-
-        const fileAttachment = new Discord.MessageAttachment(imageBuffer, 'mooncat.png');
+        const fileAttachment = {
+            attachment: imageBuffer,
+            name: 'mooncat.png'
+        };
         const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
-        const embed = new Discord.MessageEmbed()
-            .setTitle(`MoonCat #${tokenId} Adopted`)
-            .setURL(marketplaceUrl)
-            .setDescription(messageText)
-            .addField('Marketplace', `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, true)
-            .addField('Block Explorer', `${etherScanEmoji} [Etherscan](${transactionUrl})`, true)
-            .setColor('#0099ff')
-            .attachFiles([fileAttachment])
-            .setImage('attachment://mooncat.png');
 
-        await channel.send(embed);
+        const payload = {
+            username: 'MoonCat Bot',
+            avatar_url: 'https://i.imgur.com/wSTFkRM.png', // You can use any avatar image
+            embeds: [{
+                title: `MoonCat #${tokenId} Adopted`,
+                url: marketplaceUrl,
+                description: messageText,
+                fields: [
+                    { name: 'Marketplace', value: `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, inline: true },
+                    { name: 'Block Explorer', value: `${etherScanEmoji} [Etherscan](${transactionUrl})`, inline: true }
+                ],
+                color: 3447003,
+                image: {
+                    url: 'attachment://mooncat.png'
+                }
+            }],
+            files: [fileAttachment]
+        };
+
+        const response = await fetch(DISCORD_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error sending to Discord: ${response.statusText}`);
+        }
+
         console.log("Sale announcement sent successfully.");
     } catch (error) {
         console.error('Error sending sale announcement to Discord:', error);
@@ -343,3 +357,9 @@ mooncatsContract.events.Transfer({
 });
 
 console.log("Event listener for MoonCat transfers set up successfully.");
+
+// Start Express server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
