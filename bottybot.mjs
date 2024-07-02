@@ -15,7 +15,6 @@ const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
 const app = express();
@@ -139,10 +138,10 @@ async function sendToDiscord(tokenId, messageText, transactionUrl, marketplaceNa
         const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
-        const imageUrl = `http://yourdomain.com/mooncat/${tokenId}.png`; // Update with your domain
+        const imageUrl = `https://mooncatbot.herokuapp.com/mooncat/${tokenId}.png`; // Update with your Heroku app domain
 
         const payload = {
-            username: 'MoonCat Bot',
+            username: 'MoonCatBot',
             avatar_url: 'https://x.com/mooncatbot/photo',
             embeds: [{
                 title: `MoonCat #${tokenId} Adopted`,
