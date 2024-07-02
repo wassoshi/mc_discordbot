@@ -15,6 +15,7 @@ const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
 const app = express();
@@ -51,21 +52,16 @@ const IMAGE_CONTRACT_ABI = [
     }
 ];
 
-async function getMoonCatImageBuffer(tokenId) {
-    const imageContractAddress = '0xB39C61fe6281324A23e079464f7E697F8Ba6968f';
-    const imageContract = new web3.eth.Contract(IMAGE_CONTRACT_ABI, imageContractAddress);
-
+async function getMoonCatImageURL(tokenId) {
     try {
-        const svgImage = await imageContract.methods.imageOf(tokenId, false).call();
-        const pngBuffer = await sharp(Buffer.from(svgImage))
-            .png()
-            .toBuffer();
-        if (!pngBuffer) {
-            throw new Error('Conversion to PNG buffer failed');
+        const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
         }
-        return pngBuffer;
+        const imageUrl = response.url; // direct url
+        return imageUrl;
     } catch (error) {
-        console.error('Error fetching or converting MoonCat image from blockchain:', error);
+        console.error('Error fetching MoonCat image URL:', error);
         return null;
     }
 }
@@ -126,7 +122,7 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
-async function sendToDiscord(tokenId, messageText, transactionUrl, marketplaceName, marketplaceUrl) {
+async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
     console.log("sendToDiscord called", { tokenId });
 
     if (!messageText) {
@@ -138,7 +134,6 @@ async function sendToDiscord(tokenId, messageText, transactionUrl, marketplaceNa
         const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
         const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
         const blurEmoji = '<:logo_blur:1202605694654615593>';
-        const imageUrl = `https://mooncatbot.herokuapp.com/mooncat/${tokenId}.png`; // Update with your Heroku app domain
 
         const payload = {
             username: 'MoonCatBot',
@@ -153,7 +148,7 @@ async function sendToDiscord(tokenId, messageText, transactionUrl, marketplaceNa
                 ],
                 color: 3447003,
                 image: {
-                    url: imageUrl
+                    url: imageUrl // image
                 }
             }]
         };
@@ -192,8 +187,13 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     }
 
     const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
+    const imageUrl = await getMoonCatImageURL(tokenId);
+    if (!imageUrl) {
+        console.error('Error: Failed to fetch MoonCat image URL.');
+        return;
+    }
 
-    const currency = paymentToken.symbol; // Use the symbol provided by the OpenSea response
+    const currency = paymentToken.symbol; // symbol
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
@@ -206,7 +206,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     console.log("Message text:", messageText);
 
     console.log("Calling sendToDiscord from announceMoonCatSale", { tokenId });
-    await sendToDiscord(tokenId, messageText, transactionUrl, marketplaceName, marketplaceUrl);
+    await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
 }
 
 async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
@@ -347,18 +347,6 @@ mooncatsContract.events.Transfer({
 });
 
 console.log("Event listener for MoonCat transfers set up successfully.");
-
-// Add route to serve MoonCat PNG images
-app.get('/mooncat/:tokenId.png', async (req, res) => {
-    const tokenId = req.params.tokenId;
-    const pngBuffer = await getMoonCatImageBuffer(tokenId);
-    if (!pngBuffer) {
-        res.status(404).send('MoonCat image not found');
-        return;
-    }
-    res.setHeader('Content-Type', 'image/png');
-    res.send(pngBuffer);
-});
 
 // Start Express server
 const PORT = process.env.PORT || 3000;
