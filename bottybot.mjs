@@ -15,7 +15,6 @@ const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
 const app = express();
