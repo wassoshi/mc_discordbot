@@ -201,7 +201,9 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
 
-    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${buyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+    const shortBuyerAddress = buyerAddress.substring(0, 6); // Get the first 6 characters of the buyer's address
+
+    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${shortBuyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
     console.log("Message text:", messageText);
 
     console.log("Calling sendToDiscord from announceMoonCatSale", { tokenId });
