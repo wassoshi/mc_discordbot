@@ -170,7 +170,7 @@ async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, mar
     }
 }
 
-async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress) {
+async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
     const ethToUsdRate = await getEthToUsdConversionRate();
     if (!ethToUsdRate) {
         console.error('Error: Failed to fetch ETH to USD conversion rate.');
@@ -201,7 +201,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
 
-    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} picked up for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [this address](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
     console.log("Message text:", messageText);
 
     console.log("Calling sendToDiscord from announceMoonCatSale", { tokenId });
@@ -279,7 +279,8 @@ async function processSalesQueue() {
                     saleData.ethPrice,
                     saleData.transactionUrl,
                     saleData.payment,
-                    saleData.protocolAddress
+                    saleData.protocolAddress,
+                    saleData.toAddress  // Passing buyer address here
                 );
             } else {
                 console.log(`No sale event found for tokenId ${sale.tokenId}. Skipping announcement.`);
