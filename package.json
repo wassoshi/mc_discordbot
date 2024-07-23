@@ -1,7 +1,7 @@
 {
   "name": "mooncatbot",
   "version": "1.0.0",
-  "description": "MoonCatBot for monitoring MoonCat events",
+  "description": "A bot for announcing MoonCat sales on Discord.",
   "main": "bottybot.mjs",
   "scripts": {
     "start": "node bottybot.mjs"
@@ -10,9 +10,11 @@
     "node": "16.x"
   },
   "dependencies": {
-    "web3": "1.6.1",
-    "express": "4.17.1",
-    "node-fetch": "2.6.1",
-    "sharp": "0.28.3"
-  }
+    "express": "^4.17.1",
+    "node-fetch": "^2.6.1",
+    "sharp": "^0.33.4",
+    "web3": "^4.11.0"
+  },
+  "author": "",
+  "license": "ISC"
 }
