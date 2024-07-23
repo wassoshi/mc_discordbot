@@ -110,6 +110,18 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
+async function resolveEnsName(address) {
+    try {
+        const ensName = await web3.eth.ens.getName(address);
+        if (ensName && ensName.name) {
+            return ensName.name;
+        }
+    } catch (error) {
+        console.error('Error resolving ENS name:', error);
+    }
+    return address;  // Return the original address if ENS name is not found
+}
+
 async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
     console.log("sendToDiscord called", { tokenId });
 
@@ -192,9 +204,11 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
         marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
 
+    const ensNameOrAddress = await resolveEnsName(buyerAddress);
     const shortBuyerAddress = buyerAddress.substring(0, 6); // Get the first 6 characters of the buyer's address
+    const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${shortBuyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
     console.log("Message text:", messageText);
 
     console.log("Calling sendToDiscord from announceMoonCatSale", { tokenId });
