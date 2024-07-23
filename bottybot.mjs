@@ -34,15 +34,7 @@ const MOONCATS_CONTRACT_ABI = [
         "type": "event"
     }
 ];
-
-let mooncatsContract;
-try {
-    mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
-    console.log("MoonCats contract instantiated successfully.");
-} catch (error) {
-    console.error("Error instantiating MoonCats contract:", error);
-}
-
+const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
 const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
@@ -344,29 +336,25 @@ async function fetchTransactionReceipt(transactionHash) {
     }
 }
 
-if (mooncatsContract) {
-    mooncatsContract.events.Transfer({
-        fromBlock: 'latest'
-    }).on('data', (event) => {
-        console.log(`Transfer event detected: ${JSON.stringify(event)}`);
-        transferQueue.push({
-            tokenId: event.returnValues.tokenId,
-            transactionHash: event.transactionHash,
-            sellerAddress: event.returnValues.from.toLowerCase()
-        });
-        console.log(`Added to transfer queue: ${JSON.stringify(transferQueue[transferQueue.length - 1])}`);
-        if (transferQueue.length === 1) {
-            console.log("Starting transfer queue processing.");
-            processTransferQueue();
-        }
-    }).on('error', (error) => {
-        console.error(`Error with MoonCat transfer event listener: ${error}`);
+mooncatsContract.events.Transfer({
+    fromBlock: 'latest'
+}).on('data', (event) => {
+    console.log(`Transfer event detected: ${JSON.stringify(event)}`);
+    transferQueue.push({
+        tokenId: event.returnValues.tokenId,
+        transactionHash: event.transactionHash,
+        sellerAddress: event.returnValues.from.toLowerCase()
     });
+    console.log(`Added to transfer queue: ${JSON.stringify(transferQueue[transferQueue.length - 1])}`);
+    if (transferQueue.length === 1) {
+        console.log("Starting transfer queue processing.");
+        processTransferQueue();
+    }
+}).on('error', (error) => {
+    console.error(`Error with MoonCat transfer event listener: ${error}`);
+});
 
-    console.log("Event listener for MoonCat transfers set up successfully.");
-} else {
-    console.error("Failed to instantiate MoonCats contract. Event listener not set.");
-}
+console.log("Event listener for MoonCat transfers set up successfully.");
 
 // Start Express server
 const PORT = process.env.PORT || 3000;
