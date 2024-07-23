@@ -7,7 +7,7 @@
     "start": "node bottybot.mjs"
   },
   "engines": {
-    "node": "16.x"
+    "node": "18.x"
   },
   "dependencies": {
     "express": "^4.17.1",
