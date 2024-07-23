@@ -1,19 +1,18 @@
 {
   "name": "mooncatbot",
   "version": "1.0.0",
-  "description": "",
+  "description": "MoonCatBot for monitoring MoonCat events",
   "main": "bottybot.mjs",
   "scripts": {
     "start": "node bottybot.mjs"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
-    "path": "^0.12.7",
-    "sharp": "^0.33.4",
-    "web3": "^4.11.0"
-  },
   "engines": {
-    "node": ">=16.x"
+    "node": "16.x"
+  },
+  "dependencies": {
+    "web3": "1.6.1",
+    "express": "4.17.1",
+    "node-fetch": "2.6.1",
+    "sharp": "0.28.3"
   }
 }
