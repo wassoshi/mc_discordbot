@@ -13,8 +13,8 @@
   "license": "ISC",
   "dependencies": {
     "discord.js": "^12.5.3",
-    "web3": "^1.7.3",
     "node-fetch": "^3.3.2",
-    "sharp": "^0.29.3"
+    "sharp": "^0.29.3",
+    "web3": "^4.11.0"
   }
 }
