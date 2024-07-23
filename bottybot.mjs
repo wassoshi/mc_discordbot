@@ -38,18 +38,7 @@ const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_C
 const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
-const IMAGE_CONTRACT_ABI = [
-    {
-        "inputs": [
-            { "internalType": "uint256", "name": "rescueOrder", "type": "uint256" },
-            { "internalType": "bool", "name": "glow", "type": "bool" }
-        ],
-        "name": "imageOf",
-        "outputs": [{ "internalType": "string", "name": "", "type": "string" }],
-        "stateMutability": "view",
-        "type": "function"
-    }
-];
+const DISCORD_MESSAGE_DELAY_MS = 1000;  // Add a 1-second delay between Discord messages
 
 async function getMoonCatImageURL(tokenId) {
     try {
@@ -167,6 +156,8 @@ async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, mar
         console.log("Sale announcement sent successfully.");
     } catch (error) {
         console.error('Error sending sale announcement to Discord:', error);
+        await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));  // Wait for a second before retrying
+        throw error;  // Re-throw the error to be handled by the caller
     }
 }
 
@@ -284,6 +275,7 @@ async function processSalesQueue() {
                     saleData.protocolAddress,
                     saleData.toAddress  // Passing buyer address here
                 );
+                await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));  // Wait for a second before sending the next message
             } else {
                 console.log(`No sale event found for tokenId ${sale.tokenId}. Skipping announcement.`);
             }
