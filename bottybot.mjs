@@ -16,7 +16,11 @@ const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
+console.log(`Using INFURA_PROJECT_ID: ${INFURA_PROJECT_ID}`);
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
+
+console.log('Web3 initialized:', web3);
+
 const app = express();
 
 app.use(express.json());
@@ -34,7 +38,13 @@ const MOONCATS_CONTRACT_ABI = [
         "type": "event"
     }
 ];
+
+console.log('MoonCats contract ABI:', MOONCATS_CONTRACT_ABI);
+
 const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
+
+console.log('MoonCats contract initialized:', mooncatsContract);
+
 const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
