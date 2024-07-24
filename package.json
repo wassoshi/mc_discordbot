@@ -7,13 +7,13 @@
     "start": "node bottybot.mjs"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18"
   },
   "dependencies": {
-    "express": "^4.17.1",
-    "node-fetch": "^2.6.1",
-    "sharp": "^0.33.4",
-    "web3": "^4.11.0"
+    "express": "*",
+    "node-fetch": "*",
+    "sharp": "*",
+    "web3": "*"
   },
   "author": "",
   "license": "ISC"
