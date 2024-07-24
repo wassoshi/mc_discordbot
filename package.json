@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "express": "*",
-    "node-fetch": "*",
+    "node-fetch": "^3.3.2",
     "sharp": "*",
-    "web3": "*"
+    "web3": "^1.7.3"
   },
   "author": "",
   "license": "ISC"
