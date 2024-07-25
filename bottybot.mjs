@@ -3,8 +3,8 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { getEnsAddress, ENS } from '@ensdomains/ensjs';
 import sharp from 'sharp';
-import { ENS, getEnsAddress } from '@ensdomains/ensjs';
 
 let cachedConversionRate = null;
 let lastFetchedTime = 0;
