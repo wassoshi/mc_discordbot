@@ -3,7 +3,7 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { getEnsAddress, ENS } from '@ensdomains/ensjs';
+import ENS, { getEnsAddress } from '@ensdomains/ensjs';
 import sharp from 'sharp';
 
 let cachedConversionRate = null;
