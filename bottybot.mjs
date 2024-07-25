@@ -3,7 +3,6 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import ENS, { getEnsAddress } from '@ensdomains/ensjs';
 import sharp from 'sharp';
 
 let cachedConversionRate = null;
@@ -18,9 +17,8 @@ const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
-const ens = new ENS({ provider: web3.currentProvider, ensAddress: getEnsAddress('1') });
-
 const app = express();
+
 app.use(express.json());
 
 const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
@@ -112,11 +110,33 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
+// ENS Resolver contract address
+const ENS_RESOLVER_CONTRACT_ADDRESS = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
+
+// ENS Resolver contract ABI
+const ENS_RESOLVER_ABI = [
+    {
+        "constant": true,
+        "inputs": [
+            { "name": "node", "type": "bytes32" }
+        ],
+        "name": "name",
+        "outputs": [
+            { "name": "", "type": "string" }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    }
+];
+
 async function resolveEnsName(address) {
     try {
-        const name = await ens.getName(address);
-        if (name && name.name) {
-            return name.name;
+        const namehash = web3.utils.sha3(address.toLowerCase());
+        const ensResolverContract = new web3.eth.Contract(ENS_RESOLVER_ABI, ENS_RESOLVER_CONTRACT_ADDRESS);
+        const ensName = await ensResolverContract.methods.name(namehash).call();
+        if (ensName) {
+            return ensName;
         }
     } catch (error) {
         console.error('Error resolving ENS name:', error);
