@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import sharp from 'sharp';
+import { ENS, getEnsAddress } from '@ensdomains/ensjs';
 
 let cachedConversionRate = null;
 let lastFetchedTime = 0;
@@ -17,8 +18,9 @@ const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
-const app = express();
+const ens = new ENS({ provider: web3.currentProvider, ensAddress: getEnsAddress('1') });
 
+const app = express();
 app.use(express.json());
 
 const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
@@ -112,9 +114,9 @@ function formatEthPrice(ethPrice) {
 
 async function resolveEnsName(address) {
     try {
-        const ensName = await web3.eth.ens.getName(address);
-        if (ensName && ensName.name) {
-            return ensName.name;
+        const name = await ens.getName(address);
+        if (name && name.name) {
+            return name.name;
         }
     } catch (error) {
         console.error('Error resolving ENS name:', error);
