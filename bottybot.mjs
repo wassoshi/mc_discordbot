@@ -132,7 +132,9 @@ const ENS_RESOLVER_ABI = [
 
 async function resolveEnsName(address) {
     try {
-        const namehash = web3.utils.sha3(address.toLowerCase());
+        // Use the ENS reverse resolution mechanism to get the ENS name
+        const reverseNode = `${address.slice(2).toLowerCase()}.addr.reverse`;
+        const namehash = web3.utils.sha3(reverseNode);
         const ensResolverContract = new web3.eth.Contract(ENS_RESOLVER_ABI, ENS_RESOLVER_CONTRACT_ADDRESS);
         const ensName = await ensResolverContract.methods.name(namehash).call();
         if (ensName) {
