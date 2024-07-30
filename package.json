@@ -13,7 +13,8 @@
     "express": "*",
     "node-fetch": "^3.3.2",
     "sharp": "*",
-    "web3": "^1.7.3"
+    "web3": "^1.7.3",
+    "eth-ens-namehash": "^2.0.8"
   },
   "author": "",
   "license": "ISC"

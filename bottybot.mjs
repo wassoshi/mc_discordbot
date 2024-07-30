@@ -38,7 +38,7 @@ const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_C
 const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
-const DISCORD_MESSAGE_DELAY_MS = 1000;  // Add a 1-second delay between Discord messages
+const DISCORD_MESSAGE_DELAY_MS = 1000;
 
 async function getMoonCatImageURL(tokenId) {
     try {
@@ -46,7 +46,7 @@ async function getMoonCatImageURL(tokenId) {
         if (!response.ok) {
             throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
         }
-        const imageUrl = response.url; // direct url
+        const imageUrl = response.url;
         return imageUrl;
     } catch (error) {
         console.error('Error fetching MoonCat image URL:', error);
@@ -110,10 +110,8 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
-// ENS Resolver contract address
 const ENS_RESOLVER_CONTRACT_ADDRESS = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
 
-// ENS Resolver contract ABI
 const ENS_RESOLVER_ABI = [
     {
         "constant": true,
@@ -132,9 +130,8 @@ const ENS_RESOLVER_ABI = [
 
 async function resolveEnsName(address) {
     try {
-        // Use the ENS reverse resolution mechanism to get the ENS name
         const reverseNode = `${address.slice(2).toLowerCase()}.addr.reverse`;
-        const namehash = web3.utils.sha3(reverseNode);
+        const namehash = web3.utils.namehash(reverseNode);
         const ensResolverContract = new web3.eth.Contract(ENS_RESOLVER_ABI, ENS_RESOLVER_CONTRACT_ADDRESS);
         const ensName = await ensResolverContract.methods.name(namehash).call();
         if (ensName) {
@@ -143,7 +140,7 @@ async function resolveEnsName(address) {
     } catch (error) {
         console.error('Error resolving ENS name:', error);
     }
-    return address;  // Return the original address if ENS name is not found
+    return address;
 }
 
 async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
@@ -172,7 +169,7 @@ async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, mar
                 ],
                 color: 3447003,
                 image: {
-                    url: imageUrl // image
+                    url: imageUrl
                 }
             }]
         };
@@ -192,8 +189,8 @@ async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, mar
         console.log("Sale announcement sent successfully.");
     } catch (error) {
         console.error('Error sending sale announcement to Discord:', error);
-        await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));  // Wait for a second before retrying
-        throw error;  // Re-throw the error to be handled by the caller
+        await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
+        throw error;
     }
 }
 
@@ -219,7 +216,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
         return;
     }
 
-    const currency = paymentToken.symbol; // symbol
+    const currency = paymentToken.symbol;
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
@@ -229,7 +226,7 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     }
 
     const ensNameOrAddress = await resolveEnsName(buyerAddress);
-    const shortBuyerAddress = buyerAddress.substring(0, 6); // Get the first 6 characters of the buyer's address
+    const shortBuyerAddress = buyerAddress.substring(0, 6);
     const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
     let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
@@ -311,9 +308,9 @@ async function processSalesQueue() {
                     saleData.transactionUrl,
                     saleData.payment,
                     saleData.protocolAddress,
-                    saleData.toAddress  // Passing buyer address here
+                    saleData.toAddress
                 );
-                await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));  // Wait for a second before sending the next message
+                await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
             } else {
                 console.log(`No sale event found for tokenId ${sale.tokenId}. Skipping announcement.`);
             }
@@ -380,7 +377,6 @@ mooncatsContract.events.Transfer({
 
 console.log("Event listener for MoonCat transfers set up successfully.");
 
-// Start Express server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
