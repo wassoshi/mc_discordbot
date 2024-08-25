@@ -22,8 +22,8 @@ const app = express();
 
 app.use(express.json());
 
-const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
-const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7C40c393DC0f283F318791d746d894DdD3693572';
+const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69'.toLowerCase();
+const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7c40c393dc0f283f318791d746d894ddd3693572'.toLowerCase();
 
 const MOONCATS_CONTRACT_ABI = [
     {
@@ -128,14 +128,14 @@ async function processSalesQueue() {
         const sale = salesQueue.shift();
         try {
             let saleData;
-            if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+            if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS) {
                 saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, OLD_WRAPPER_CONTRACT_ADDRESS);
             } else {
                 saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, MOONCATS_CONTRACT_ADDRESS);
             }
 
             if (saleData) {
-                if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+                if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS) {
                     await announceOldWrapperSale(
                         saleData.tokenId,
                         saleData.ethPrice,
