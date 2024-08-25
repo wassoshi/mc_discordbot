@@ -59,6 +59,32 @@ const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
 const DISCORD_MESSAGE_DELAY_MS = 1000;
 
+async function fetchEnsNameFromEtherscan(address) {
+    console.log(`Fetching ENS name for address: ${address}`);
+    const apiKey = ETHERSCAN_API_KEY;
+    const url = `https://api.etherscan.io/api?module=account&action=ensresolve&address=${address}&apikey=${apiKey}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === '1' && data.result) {
+            console.log(`ENS name found: ${data.result}`);
+            return data.result;
+        }
+    } catch (error) {
+        console.error(`Error fetching ENS name: ${error.message}`);
+    }
+
+    console.log(`ENS name not found, returning address.`);
+    return address;
+}
+
+async function resolveEnsName(address) {
+    const ensName = await fetchEnsNameFromEtherscan(address);
+    return ensName || address;
+}
+
 async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress) {
     try {
         await new Promise(resolve => setTimeout(resolve, 10000));
@@ -201,4 +227,5 @@ oldWrapperContract.events.Transfer({
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
