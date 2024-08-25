@@ -78,7 +78,7 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
         const saleEvent = data.asset_events.find(event =>
             event.nft &&
             event.nft.identifier.toString() === tokenId.toString() &&
-            event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() && // Case-insensitive comparison
+            event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() &&
             event.buyer
         );
 
@@ -98,10 +98,10 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
             ethPrice,
             transactionUrl,
             payment: paymentToken,
-            fromAddress: saleEvent.seller.toLowerCase(), // Ensure consistent casing
-            toAddress: saleEvent.buyer.toLowerCase(), // Ensure consistent casing
+            fromAddress: saleEvent.seller.toLowerCase(),
+            toAddress: saleEvent.buyer.toLowerCase(),
             protocolAddress: saleEvent.protocol_address,
-            saleSellerAddress: sellerAddress.toLowerCase() // Ensure consistent casing
+            saleSellerAddress: sellerAddress.toLowerCase()
         };
     } catch (error) {
         return null;
@@ -113,14 +113,14 @@ async function processSalesQueue() {
         const sale = salesQueue.shift();
         try {
             let saleData;
-            if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) { // Case-insensitive comparison
+            if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                 saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, OLD_WRAPPER_CONTRACT_ADDRESS);
             } else {
                 saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, MOONCATS_CONTRACT_ADDRESS);
             }
 
             if (saleData) {
-                if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) { // Case-insensitive comparison
+                if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                     await announceOldWrapperSale(
                         saleData.tokenId,
                         saleData.ethPrice,
@@ -177,7 +177,7 @@ mooncatsContract.events.Transfer({
     transferQueue.push({
         tokenId: event.returnValues.tokenId,
         transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase() // Ensure consistent casing
+        sellerAddress: event.returnValues.from.toLowerCase()
     });
     if (transferQueue.length === 1) {
         processTransferQueue();
@@ -191,7 +191,7 @@ oldWrapperContract.events.Transfer({
     transferQueue.push({
         tokenId: event.returnValues.tokenId,
         transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase() // Ensure consistent casing
+        sellerAddress: event.returnValues.from.toLowerCase()
     });
     if (transferQueue.length === 1) {
         processTransferQueue();
