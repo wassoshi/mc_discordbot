@@ -59,29 +59,18 @@ const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
 const DISCORD_MESSAGE_DELAY_MS = 1000;
 
-async function fetchEnsNameFromEtherscan(address) {
-    console.log(`Fetching ENS name for address: ${address}`);
-    const apiKey = ETHERSCAN_API_KEY;
-    const url = `https://api.etherscan.io/api?module=account&action=ensresolve&address=${address}&apikey=${apiKey}`;
-
+async function fetchEnsNameFromWeb3(address) {
     try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.status === '1' && data.result) {
-            console.log(`ENS name found: ${data.result}`);
-            return data.result;
+        const ensName = await web3.eth.ens.getName(address);
+        if (ensName && ensName.name) {
+            return ensName.name;
         }
-    } catch (error) {
-        console.error(`Error fetching ENS name: ${error.message}`);
-    }
-
-    console.log(`ENS name not found, returning address.`);
+    } catch (error) {}
     return address;
 }
 
 async function resolveEnsName(address) {
-    const ensName = await fetchEnsNameFromEtherscan(address);
+    const ensName = await fetchEnsNameFromWeb3(address);
     return ensName || address;
 }
 
@@ -167,8 +156,7 @@ async function processSalesQueue() {
                 }
                 await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
             }
-        } catch (error) {
-        }
+        } catch (error) {}
     }
 }
 
@@ -184,8 +172,7 @@ async function processTransferQueue() {
                     processSalesQueue();
                 }
             }
-        } catch (error) {
-        }
+        } catch (error) {}
     }
 }
 
@@ -208,8 +195,7 @@ mooncatsContract.events.Transfer({
     if (transferQueue.length === 1) {
         processTransferQueue();
     }
-}).on('error', (error) => {
-});
+}).on('error', (error) => {});
 
 oldWrapperContract.events.Transfer({
     fromBlock: 'latest'
@@ -222,10 +208,7 @@ oldWrapperContract.events.Transfer({
     if (transferQueue.length === 1) {
         processTransferQueue();
     }
-}).on('error', (error) => {
-});
+}).on('error', (error) => {});
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => {});
