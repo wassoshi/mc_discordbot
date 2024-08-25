@@ -4,8 +4,6 @@ import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import sharp from 'sharp';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 
 let cachedConversionRate = null;
 let lastFetchedTime = 0;
@@ -60,31 +58,6 @@ const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
 const DISCORD_MESSAGE_DELAY_MS = 1000;
-
-async function fetchEnsNameFromEtherscan(address) {
-    const url = `https://etherscan.io/address/${address}`;
-
-    try {
-        const response = await axios.get(url);
-        const html = response.data;
-        const $ = cheerio.load(html);
-
-        const ensName = $('div#ContentPlaceHolder1_divSummary span.text-truncate a').text().trim();
-
-        if (ensName) {
-            return ensName;
-        }
-    } catch (error) {
-        return null;
-    }
-
-    return null;
-}
-
-async function resolveEnsName(address) {
-    const ensName = await fetchEnsNameFromEtherscan(address);
-    return ensName || address;
-}
 
 async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress) {
     try {

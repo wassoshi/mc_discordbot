@@ -13,9 +13,7 @@
     "express": "*",
     "node-fetch": "^3.3.2",
     "sharp": "*",
-    "web3": "^1.7.3",
-    "axios": "^1.4.0",
-    "cheerio": "^1.0.0-rc.12"
+    "web3": "^1.7.3"
   },
   "author": "",
   "license": "ISC"
