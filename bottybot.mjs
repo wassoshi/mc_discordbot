@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import sharp from 'sharp';
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 let cachedConversionRate = null;
 let lastFetchedTime = 0;
