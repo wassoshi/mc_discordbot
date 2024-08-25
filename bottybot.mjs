@@ -59,219 +59,6 @@ const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
 const DISCORD_MESSAGE_DELAY_MS = 1000;
 
-async function getMoonCatImageURL(tokenId) {
-    try {
-        const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
-        }
-        const imageUrl = response.url;
-        return imageUrl;
-    } catch (error) {
-        console.error('Error fetching MoonCat image URL:', error);
-        return null;
-    }
-}
-
-async function getOldWrapperImageAndDetails(tokenId) {
-    try {
-        const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`, {
-            method: 'GET',
-            headers: { 'X-API-KEY': OPENSEA_API_KEY }
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch details for token ${tokenId} from OpenSea: ${response.statusText}`);
-        }
-        const data = await response.json();
-        return {
-            imageUrl: data.image_url,
-            name: data.name || `Wrapped MoonCat #${tokenId}`
-        };
-    } catch (error) {
-        console.error('Error fetching details from OpenSea:', error);
-        return null;
-    }
-}
-
-async function getEthToUsdConversionRate() {
-    const currentTime = Date.now();
-    const oneHour = 3600000;
-
-    if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
-        return cachedConversionRate;
-    }
-
-    const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
-    const params = new URLSearchParams({ 'symbol': 'ETH', 'convert': 'USD' });
-
-    try {
-        const response = await fetch(`${url}?${params}`, {
-            method: 'GET',
-            headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY, 'Accept': 'application/json' }
-        });
-        if (!response.ok) {
-            throw new Error(`API responded with status ${response.status}`);
-        }
-        const data = await response.json();
-        cachedConversionRate = data.data.ETH.quote.USD.price;
-        lastFetchedTime = currentTime;
-        return cachedConversionRate;
-    } catch (error) {
-        console.error('Error fetching ETH to USD conversion rate:', error);
-        return null;
-    }
-}
-
-async function getMoonCatNameOrId(tokenId) {
-    const tokenIdStr = tokenId.toString();
-    const tokenIdHex = tokenIdStr.startsWith('0x') ? tokenIdStr.slice(2) : tokenIdStr;
-
-    try {
-        const response = await fetch(`https://api.mooncat.community/traits/${tokenIdHex}`);
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error(`Error fetching MoonCat name or ID for token ${tokenIdHex}:`, error);
-        const fallbackId = `0x${tokenIdHex.toLowerCase().padStart(64, '0')}`;
-        return fallbackId;
-    }
-}
-
-function formatEthPrice(ethPrice) {
-    return parseFloat(ethPrice.toFixed(3));
-}
-
-async function resolveEnsName(address) {
-    try {
-        const etherscanApiUrl = `https://api.etherscan.io/api?module=account&action=ensdomain&address=${address}&apikey=${ETHERSCAN_API_KEY}`;
-        const response = await fetch(etherscanApiUrl);
-        const data = await response.json();
-
-        if (data.status === "1" && data.result) {
-            return data.result;
-        }
-    } catch (error) {
-        console.error('Error fetching ENS name from Etherscan:', error);
-    }
-
-    return address;
-}
-
-async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
-    if (!messageText) {
-        console.error('Error: Message text is empty.');
-        return;
-    }
-
-    try {
-        const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
-        const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
-        const blurEmoji = '<:logo_blur:1202605694654615593>';
-
-        const payload = {
-            username: 'MoonCatBot',
-            avatar_url: 'https://x.com/mooncatbot/photo',
-            embeds: [{
-                title: `MoonCat Adopted`,
-                url: marketplaceUrl,
-                description: messageText,
-                fields: [
-                    { name: 'Marketplace', value: `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, inline: true },
-                    { name: 'Block Explorer', value: `${etherScanEmoji} [Etherscan](${transactionUrl})`, inline: true }
-                ],
-                color: 3447003,
-                image: {
-                    url: imageUrl
-                }
-            }]
-        };
-
-        const response = await fetch(DISCORD_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            throw new Error(`Error sending to Discord: ${response.statusText}`);
-        }
-    } catch (error) {
-        console.error('Error sending sale announcement to Discord:', error);
-        await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
-        throw error;
-    }
-}
-
-async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
-    const ethToUsdRate = await getEthToUsdConversionRate();
-    if (!ethToUsdRate) {
-        return;
-    }
-
-    const formattedEthPrice = formatEthPrice(ethPrice);
-    const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
-    const moonCatData = await getMoonCatNameOrId(tokenId);
-    if (!moonCatData) {
-        return;
-    }
-
-    const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
-    const imageUrl = await getMoonCatImageURL(tokenId);
-    if (!imageUrl) {
-        return;
-    }
-
-    const currency = paymentToken.symbol;
-    let marketplaceName = "OpenSea";
-    let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
-
-    if (!protocolAddress || protocolAddress.trim() === '') {
-        marketplaceName = "Blur";
-        marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
-    }
-
-    const ensNameOrAddress = await resolveEnsName(buyerAddress);
-    const shortBuyerAddress = buyerAddress.substring(0, 6);
-    const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
-
-    let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
-
-    await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
-}
-
-async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
-    const ethToUsdRate = await getEthToUsdConversionRate();
-    if (!ethToUsdRate) {
-        return;
-    }
-
-    const formattedEthPrice = formatEthPrice(ethPrice);
-    const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
-    const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
-    if (!imageUrl) {
-        return;
-    }
-
-    const currency = paymentToken.symbol;
-    let marketplaceName = "OpenSea";
-    let marketplaceUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
-
-    if (!protocolAddress || protocolAddress.trim() === '') {
-        marketplaceName = "Blur";
-        marketplaceUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
-    }
-
-    const ensNameOrAddress = await resolveEnsName(buyerAddress);
-    const shortBuyerAddress = buyerAddress.substring(0, 6);
-    const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
-
-    let messageText = `${name} found a new home with [${displayBuyerAddress}](https://etherscan.io/address/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
-
-    await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
-}
-
 async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress) {
     try {
         await new Promise(resolve => setTimeout(resolve, 10000));
@@ -291,7 +78,7 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
         const saleEvent = data.asset_events.find(event =>
             event.nft &&
             event.nft.identifier.toString() === tokenId.toString() &&
-            event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() &&
+            event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() && // Case-insensitive comparison
             event.buyer
         );
 
@@ -311,10 +98,10 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
             ethPrice,
             transactionUrl,
             payment: paymentToken,
-            fromAddress: saleEvent.seller,
-            toAddress: saleEvent.buyer,
+            fromAddress: saleEvent.seller.toLowerCase(), // Ensure consistent casing
+            toAddress: saleEvent.buyer.toLowerCase(), // Ensure consistent casing
             protocolAddress: saleEvent.protocol_address,
-            saleSellerAddress: sellerAddress
+            saleSellerAddress: sellerAddress.toLowerCase() // Ensure consistent casing
         };
     } catch (error) {
         return null;
@@ -326,14 +113,14 @@ async function processSalesQueue() {
         const sale = salesQueue.shift();
         try {
             let saleData;
-            if (sale.contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS) {
+            if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) { // Case-insensitive comparison
                 saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, OLD_WRAPPER_CONTRACT_ADDRESS);
             } else {
                 saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, MOONCATS_CONTRACT_ADDRESS);
             }
 
             if (saleData) {
-                if (sale.contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS) {
+                if (sale.contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) { // Case-insensitive comparison
                     await announceOldWrapperSale(
                         saleData.tokenId,
                         saleData.ethPrice,
@@ -390,7 +177,7 @@ mooncatsContract.events.Transfer({
     transferQueue.push({
         tokenId: event.returnValues.tokenId,
         transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase()
+        sellerAddress: event.returnValues.from.toLowerCase() // Ensure consistent casing
     });
     if (transferQueue.length === 1) {
         processTransferQueue();
@@ -404,7 +191,7 @@ oldWrapperContract.events.Transfer({
     transferQueue.push({
         tokenId: event.returnValues.tokenId,
         transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase()
+        sellerAddress: event.returnValues.from.toLowerCase() // Ensure consistent casing
     });
     if (transferQueue.length === 1) {
         processTransferQueue();
