@@ -10,10 +10,12 @@
     "node": ">=18"
   },
   "dependencies": {
+    "ethers": "^6.6.2",
     "express": "*",
-    "node-fetch": "^3.3.2",
+    "node-fetch": "*",
     "sharp": "*",
-    "web3": "^1.7.3"
+    "alchemy-sdk": "^2.0.0",
+    "ws": "^8.18.0"
   },
   "author": "",
   "license": "ISC"
