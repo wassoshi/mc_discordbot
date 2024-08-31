@@ -384,6 +384,10 @@ async function processTransferQueue() {
         console.log(`Processing transfer for MoonCat #${transfer.tokenId}...`);
         try {
             await new Promise(resolve => setTimeout(resolve, TRANSFER_PROCESS_DELAY_MS));
+            if (!transfer.transactionHash) {
+                console.error(`Missing transaction hash for transfer of MoonCat #${transfer.tokenId}. Skipping.`);
+                continue; // Skip this transfer if transactionHash is missing
+            }
             const receipt = await fetchTransactionReceipt(transfer.transactionHash);
             if (receipt && receipt.status) {
                 salesQueue.push(transfer);
