@@ -98,6 +98,7 @@ async function getEthToUsdConversionRate() {
     const oneHour = 3600000;
 
     if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
+        console.log('Using cached ETH to USD conversion rate:', cachedConversionRate);
         return cachedConversionRate;
     }
 
@@ -115,6 +116,7 @@ async function getEthToUsdConversionRate() {
         const data = await response.json();
         cachedConversionRate = data.data.ETH.quote.USD.price;
         lastFetchedTime = currentTime;
+        console.log('Fetched new ETH to USD conversion rate:', cachedConversionRate);
         return cachedConversionRate;
     } catch (error) {
         console.error('Error fetching ETH to USD conversion rate:', error);
@@ -197,6 +199,7 @@ async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, mar
         if (!response.ok) {
             throw new Error(`Error sending to Discord: ${response.statusText}`);
         }
+        console.log(`Successfully sent MoonCat #${tokenId} announcement to Discord.`);
     } catch (error) {
         console.error('Error sending sale announcement to Discord:', error);
         await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
@@ -205,8 +208,11 @@ async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, mar
 }
 
 async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
+    console.log(`Processing sale for MoonCat #${tokenId}...`);
+
     const ethToUsdRate = await getEthToUsdConversionRate();
     if (!ethToUsdRate) {
+        console.log(`Skipping sale for MoonCat #${tokenId} due to missing ETH to USD conversion rate.`);
         return;
     }
 
@@ -214,12 +220,14 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
     const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
     const moonCatData = await getMoonCatNameOrId(tokenId);
     if (!moonCatData) {
+        console.log(`Skipping sale for MoonCat #${tokenId} due to missing MoonCat data.`);
         return;
     }
 
     const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
     const imageUrl = await getMoonCatImageURL(tokenId);
     if (!imageUrl) {
+        console.log(`Skipping sale for MoonCat #${tokenId} due to missing image URL.`);
         return;
     }
 
@@ -242,8 +250,11 @@ async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentTok
 }
 
 async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
+    console.log(`Processing sale for Wrapped MoonCat #${tokenId}...`);
+
     const ethToUsdRate = await getEthToUsdConversionRate();
     if (!ethToUsdRate) {
+        console.log(`Skipping sale for Wrapped MoonCat #${tokenId} due to missing ETH to USD conversion rate.`);
         return;
     }
 
@@ -251,6 +262,7 @@ async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, payment
     const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
     const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
     if (!imageUrl) {
+        console.log(`Skipping sale for Wrapped MoonCat #${tokenId} due to missing image URL.`);
         return;
     }
 
@@ -273,6 +285,7 @@ async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, payment
 }
 
 async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress) {
+    console.log(`Fetching sale data for MoonCat #${tokenId}...`);
     try {
         await new Promise(resolve => setTimeout(resolve, 10000));
         const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=sale&limit=50`;
@@ -285,6 +298,7 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
         const data = await response.json();
 
         if (!data || !Array.isArray(data.asset_events) || data.asset_events.length === 0) {
+            console.log(`No sale events found for MoonCat #${tokenId}`);
             return null;
         }
 
@@ -296,16 +310,19 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
         );
 
         if (!saleEvent) {
+            console.log(`No matching sale event found for MoonCat #${tokenId}`);
             return null;
         }
 
         if (!saleEvent.seller || !saleEvent.buyer || !saleEvent.payment || !saleEvent.transaction) {
+            console.log(`Incomplete sale event data for MoonCat #${tokenId}`);
             return null;
         }
 
         const paymentToken = saleEvent.payment;
         const ethPrice = paymentToken.quantity / (10 ** paymentToken.decimals);
         const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
+        console.log(`Successfully fetched sale data for MoonCat #${tokenId}`);
         return {
             tokenId,
             ethPrice,
@@ -317,6 +334,7 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
             saleSellerAddress: sellerAddress
         };
     } catch (error) {
+        console.error(`Error fetching sale data from OpenSea for MoonCat #${tokenId}:`, error);
         return null;
     }
 }
@@ -355,6 +373,7 @@ async function processSalesQueue() {
                 await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
             }
         } catch (error) {
+            console.error(`Error processing sale for MoonCat #${sale.tokenId}:`, error);
         }
     }
 }
@@ -362,16 +381,21 @@ async function processSalesQueue() {
 async function processTransferQueue() {
     while (transferQueue.length > 0) {
         const transfer = transferQueue.shift();
+        console.log(`Processing transfer for MoonCat #${transfer.tokenId}...`);
         try {
             await new Promise(resolve => setTimeout(resolve, TRANSFER_PROCESS_DELAY_MS));
             const receipt = await fetchTransactionReceipt(transfer.transactionHash);
             if (receipt && receipt.status) {
                 salesQueue.push(transfer);
+                console.log(`Transfer for MoonCat #${transfer.tokenId} confirmed, added to sales queue.`);
                 if (salesQueue.length === 1) {
                     processSalesQueue();
                 }
+            } else {
+                console.log(`Transfer for MoonCat #${transfer.tokenId} not yet confirmed.`);
             }
         } catch (error) {
+            console.error(`Error processing transfer for MoonCat #${transfer.tokenId}:`, error);
         }
     }
 }
@@ -380,11 +404,13 @@ async function fetchTransactionReceipt(transactionHash) {
     try {
         return await provider.getTransactionReceipt(transactionHash);
     } catch (error) {
+        console.error(`Error fetching transaction receipt for hash ${transactionHash}:`, error);
         return null;
     }
 }
 
 mooncatsContract.on('Transfer', (from, to, tokenId, event) => {
+    console.log(`Detected transfer event for MoonCat #${tokenId} from ${from} to ${to}`);
     transferQueue.push({
         tokenId: tokenId.toString(),
         transactionHash: event.transactionHash,
@@ -396,6 +422,7 @@ mooncatsContract.on('Transfer', (from, to, tokenId, event) => {
 });
 
 oldWrapperContract.on('Transfer', (from, to, tokenId, event) => {
+    console.log(`Detected transfer event for Wrapped MoonCat #${tokenId} from ${from} to ${to}`);
     transferQueue.push({
         tokenId: tokenId.toString(),
         transactionHash: event.transactionHash,
