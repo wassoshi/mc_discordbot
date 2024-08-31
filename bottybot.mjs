@@ -27,7 +27,7 @@ function runSalesBot() {
     const ethersProvider = new InfuraProvider('homestead', INFURA_PROJECT_ID);
 
     const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
-    const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7C40c393DC0f283F318791d746d894DdD3693572';
+    const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7c40c393dc0f283f318791d746d894ddd3693572';
 
     const MOONCATS_CONTRACT_ABI = [
         {
@@ -78,7 +78,8 @@ function runSalesBot() {
 
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`, {
+            console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for details.`);
+            const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()}/${tokenId}`, {
                 method: 'GET',
                 headers: { 'X-API-KEY': OPENSEA_API_KEY }
             });
@@ -86,13 +87,16 @@ function runSalesBot() {
                 throw new Error(`Failed to fetch details for token ${tokenId} from OpenSea: ${response.statusText}`);
             }
             const data = await response.json();
+            console.log(`Successfully fetched OldWrapper details for token ID ${tokenId}`);
             return {
                 imageUrl: data.image_url,
                 name: data.name || `Wrapped MoonCat #${tokenId}`
             };
         } catch (error) {
             console.error('Error fetching details from OpenSea:', error);
-            return null;
+            return {
+                imageUrl: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962
+            };
         }
     }
 
@@ -251,6 +255,7 @@ function runSalesBot() {
 
     async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
         console.log(`Processing sale for Wrapped MoonCat #${tokenId}...`);
+        console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for sales.`);
 
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
@@ -286,6 +291,7 @@ function runSalesBot() {
 
     async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
         try {
+            console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for sales.`);
             await new Promise(resolve => setTimeout(resolve, 10000));
             const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=sale&limit=50`;
             const headers = {
@@ -501,8 +507,8 @@ function runListingBot() {
 
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            console.log(`Fetching OldWrapper image and details for token ID ${tokenId}`);
-            const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`, {
+            console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for details.`);
+            const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()}/${tokenId}`, {
                 method: 'GET',
                 headers: { 'X-API-KEY': OPENSEA_API_KEY }
             });
@@ -766,7 +772,8 @@ function runListingBot() {
             try {
                 const listingContract = listing.asset.contract.toLowerCase();
 
-                if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS) {
+                if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+                    console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for listings.`);
                     console.log(`Detected OldWrapper listing with order hash ${orderHash}`);
                     await announceOldWrapperListing(listing);
                 } else if (listingContract === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
