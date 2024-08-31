@@ -95,7 +95,7 @@ function runSalesBot() {
         } catch (error) {
             console.error('Error fetching details from OpenSea:', error);
             return {
-                imageUrl: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962
+                imageUrl: `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`
             };
         }
     }
