@@ -1,9 +1,10 @@
-import { InfuraProvider, Contract } from 'ethers';
+import Web3 from 'web3';
 import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import sharp from 'sharp';
+import { InfuraProvider } from 'ethers';
 
 let cachedConversionRate = null;
 let lastFetchedTime = 0;
@@ -16,9 +17,10 @@ const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
-const provider = new InfuraProvider('homestead', INFURA_PROJECT_ID);
-
+const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
+const ethersProvider = new InfuraProvider('homestead', INFURA_PROJECT_ID);
 const app = express();
+
 app.use(express.json());
 
 const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
@@ -50,9 +52,8 @@ const OLD_WRAPPER_CONTRACT_ABI = [
     }
 ];
 
-const mooncatsContract = new Contract(MOONCATS_CONTRACT_ADDRESS, MOONCATS_CONTRACT_ABI, provider);
-const oldWrapperContract = new Contract(OLD_WRAPPER_CONTRACT_ADDRESS, OLD_WRAPPER_CONTRACT_ABI, provider);
-
+const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
+const oldWrapperContract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
 const salesQueue = [];
 const transferQueue = [];
 const TRANSFER_PROCESS_DELAY_MS = 45000;
@@ -97,7 +98,6 @@ async function getEthToUsdConversionRate() {
     const oneHour = 3600000;
 
     if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
-        console.log('Using cached ETH to USD conversion rate:', cachedConversionRate);
         return cachedConversionRate;
     }
 
@@ -115,7 +115,6 @@ async function getEthToUsdConversionRate() {
         const data = await response.json();
         cachedConversionRate = data.data.ETH.quote.USD.price;
         lastFetchedTime = currentTime;
-        console.log('Fetched new ETH to USD conversion rate:', cachedConversionRate);
         return cachedConversionRate;
     } catch (error) {
         console.error('Error fetching ETH to USD conversion rate:', error);
@@ -144,7 +143,7 @@ function formatEthPrice(ethPrice) {
 
 async function fetchEnsName(address) {
     try {
-        const ensName = await provider.lookupAddress(address);
+        const ensName = await ethersProvider.lookupAddress(address);
         return ensName || address;
     } catch (error) {
         console.error(`Failed to fetch ENS name for address ${address}:`, error);
@@ -282,8 +281,7 @@ async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, payment
     await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
 }
 
-async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress) {
-    console.log(`Fetching sale data for MoonCat #${tokenId}...`);
+async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
     try {
         await new Promise(resolve => setTimeout(resolve, 10000));
         const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=sale&limit=50`;
@@ -296,7 +294,7 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
         const data = await response.json();
 
         if (!data || !Array.isArray(data.asset_events) || data.asset_events.length === 0) {
-            console.log(`No sale events found for MoonCat #${tokenId}`);
+            console.error('Invalid response structure from OpenSea:', data);
             return null;
         }
 
@@ -308,19 +306,19 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
         );
 
         if (!saleEvent) {
-            console.log(`No matching sale event found for MoonCat #${tokenId}`);
+            console.log(`No sale event found for tokenId ${tokenId} with seller ${sellerAddress}`);
             return null;
         }
 
         if (!saleEvent.seller || !saleEvent.buyer || !saleEvent.payment || !saleEvent.transaction) {
-            console.log(`Incomplete sale event data for MoonCat #${tokenId}`);
+            console.error('Sale event is missing required data:', saleEvent);
             return null;
         }
 
         const paymentToken = saleEvent.payment;
         const ethPrice = paymentToken.quantity / (10 ** paymentToken.decimals);
         const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
-        console.log(`Successfully fetched sale data for MoonCat #${tokenId}`);
+        console.log(`Fetched sale data from OpenSea: ${JSON.stringify(saleEvent)}`);
         return {
             tokenId,
             ethPrice,
@@ -332,110 +330,115 @@ async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress)
             saleSellerAddress: sellerAddress
         };
     } catch (error) {
-        console.error(`Error fetching sale data from OpenSea for MoonCat #${tokenId}:`, error);
+        console.error('Error fetching sale data from OpenSea:', error);
         return null;
     }
 }
 
 async function processSalesQueue() {
+    console.log("Started processing sales queue.");
     while (salesQueue.length > 0) {
+        console.log(`Processing sales queue. Queue size: ${salesQueue.length}`);
         const sale = salesQueue.shift();
+        console.log(`Sale Data: ${JSON.stringify(sale)}`);
         try {
-            let saleData;
-            if (sale.contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS) {
-                saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, OLD_WRAPPER_CONTRACT_ADDRESS);
-            } else {
-                saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, MOONCATS_CONTRACT_ADDRESS);
-            }
-
+            const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
+            console.log(`Sale Data from OpenSea: ${JSON.stringify(saleData)}`);
             if (saleData) {
-                if (sale.contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS) {
-                    await announceOldWrapperSale(
-                        saleData.tokenId,
-                        saleData.ethPrice,
-                        saleData.transactionUrl,
-                        saleData.payment,
-                        saleData.protocolAddress,
-                        saleData.toAddress
-                    );
-                } else {
-                    await announceMoonCatSale(
-                        saleData.tokenId,
-                        saleData.ethPrice,
-                        saleData.transactionUrl,
-                        saleData.payment,
-                        saleData.protocolAddress,
-                        saleData.toAddress
-                    );
-                }
+                console.log("Sale Data being passed to announceMoonCatSale:", saleData);
+                console.log("Calling announceMoonCatSale from processSalesQueue", { saleData });
+                await announceMoonCatSale(
+                    saleData.tokenId,
+                    saleData.ethPrice,
+                    saleData.transactionUrl,
+                    saleData.payment,
+                    saleData.protocolAddress,
+                    saleData.toAddress
+                );
                 await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
+            } else {
+                console.log(`No sale event found for tokenId ${sale.tokenId}. Skipping announcement.`);
             }
         } catch (error) {
-            console.error(`Error processing sale for MoonCat #${sale.tokenId}:`, error);
+            console.error(`Error processing sales queue for tokenId ${sale.tokenId}: ${error}`);
         }
     }
+    console.log("Sales queue processing complete.");
 }
 
 async function processTransferQueue() {
+    console.log("Started processing transfer queue.");
     while (transferQueue.length > 0) {
+        console.log(`Processing transfer queue. Queue size: ${transferQueue.length}`);
         const transfer = transferQueue.shift();
-        console.log(`Processing transfer for MoonCat #${transfer.tokenId}...`);
+        console.log(`Transfer Data: ${JSON.stringify(transfer)}`);
         try {
             await new Promise(resolve => setTimeout(resolve, TRANSFER_PROCESS_DELAY_MS));
-            if (!transfer.transactionHash) {
-                console.error(`Missing transaction hash for transfer of MoonCat #${transfer.tokenId}. Skipping.`);
-                continue; // Skip this transfer if transactionHash is missing
-            }
             const receipt = await fetchTransactionReceipt(transfer.transactionHash);
+            console.log(`Receipt for transactionHash ${transfer.transactionHash}: ${JSON.stringify(receipt)}`);
             if (receipt && receipt.status) {
+                console.log(`Adding transfer to sales queue`, { transfer });
                 salesQueue.push(transfer);
-                console.log(`Transfer for MoonCat #${transfer.tokenId} confirmed, added to sales queue.`);
+                console.log(`Transfer added to sales queue: ${JSON.stringify(transfer)}`);
                 if (salesQueue.length === 1) {
                     processSalesQueue();
                 }
             } else {
-                console.log(`Transfer for MoonCat #${transfer.tokenId} not yet confirmed.`);
+                console.error(`Failed transaction or receipt not available for transactionHash ${transfer.transactionHash}`);
             }
         } catch (error) {
-            console.error(`Error processing transfer for MoonCat #${transfer.tokenId}:`, error);
+            console.error(`Error processing transfer queue for transactionHash ${transfer.transactionHash}: ${error}`);
         }
     }
+    console.log("Transfer queue processing complete.");
 }
 
 async function fetchTransactionReceipt(transactionHash) {
     try {
-        return await provider.getTransactionReceipt(transactionHash);
+        return await web3.eth.getTransactionReceipt(transactionHash);
     } catch (error) {
-        console.error(`Error fetching transaction receipt for hash ${transactionHash}:`, error);
+        console.error('Error fetching transaction receipt:', error);
         return null;
     }
 }
 
-mooncatsContract.on('Transfer', (from, to, tokenId, event) => {
-    console.log(`Detected transfer event for MoonCat #${tokenId} from ${from} to ${to}`);
+mooncatsContract.events.Transfer({
+    fromBlock: 'latest'
+}).on('data', (event) => {
+    console.log(`Transfer event detected: ${JSON.stringify(event)}`);
     transferQueue.push({
-        tokenId: tokenId.toString(),
+        tokenId: event.returnValues.tokenId,
         transactionHash: event.transactionHash,
-        sellerAddress: from.toLowerCase()
+        sellerAddress: event.returnValues.from.toLowerCase()
     });
+    console.log(`Added to transfer queue: ${JSON.stringify(transferQueue[transferQueue.length - 1])}`);
     if (transferQueue.length === 1) {
+        console.log("Starting transfer queue processing.");
         processTransferQueue();
     }
+}).on('error', (error) => {
+    console.error(`Error with MoonCat transfer event listener: ${error}`);
 });
 
-oldWrapperContract.on('Transfer', (from, to, tokenId, event) => {
-    console.log(`Detected transfer event for Wrapped MoonCat #${tokenId} from ${from} to ${to}`);
+oldWrapperContract.events.Transfer({
+    fromBlock: 'latest'
+}).on('data', (event) => {
+    console.log(`Transfer event detected for Wrapped MoonCat: ${JSON.stringify(event)}`);
     transferQueue.push({
-        tokenId: tokenId.toString(),
+        tokenId: event.returnValues.tokenId,
         transactionHash: event.transactionHash,
-        sellerAddress: from.toLowerCase()
+        sellerAddress: event.returnValues.from.toLowerCase()
     });
+    console.log(`Added to transfer queue: ${JSON.stringify(transferQueue[transferQueue.length - 1])}`);
     if (transferQueue.length === 1) {
+        console.log("Starting transfer queue processing.");
         processTransferQueue();
     }
+}).on('error', (error) => {
+    console.error(`Error with Wrapped MoonCat transfer event listener: ${error}`);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Sales bot listening on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
