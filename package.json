@@ -1,7 +1,7 @@
 {
   "name": "mooncatbot",
-  "version": "1.0.1",
-  "description": "A bot for announcing MoonCat sales and transfers on Discord, using web3 for blockchain interactions and ethers for ENS name resolution.",
+  "version": "1.0.2",
+  "description": "A combined bot for monitoring MoonCat listings and announcing sales on Discord.",
   "main": "bottybot.mjs",
   "scripts": {
     "start": "node bottybot.mjs"
@@ -10,13 +10,15 @@
     "node": ">=18"
   },
   "dependencies": {
-    "web3": "^1.7.5",
     "ethers": "^6.6.2",
     "express": "*",
     "node-fetch": "*",
-    "sharp": "^0.32.3",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "alchemy-sdk": "^2.0.0",
+    "web3": "^1.7.5",
+    "sharp": "^0.32.3"
   },
+  "type": "module",
   "author": "",
   "license": "ISC"
 }
