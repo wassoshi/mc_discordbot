@@ -15,7 +15,6 @@ const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 
 const provider = new InfuraProvider('homestead', INFURA_PROJECT_ID);
 
@@ -143,20 +142,19 @@ function formatEthPrice(ethPrice) {
     return parseFloat(ethPrice.toFixed(3));
 }
 
-async function resolveEnsName(address) {
+async function fetchEnsName(address) {
     try {
-        const etherscanApiUrl = `https://api.etherscan.io/api?module=account&action=ensdomain&address=${address}&apikey=${ETHERSCAN_API_KEY}`;
-        const response = await fetch(etherscanApiUrl);
-        const data = await response.json();
-
-        if (data.status === "1" && data.result) {
-            return data.result;
-        }
+        const ensName = await provider.lookupAddress(address);
+        return ensName || address;
     } catch (error) {
-        console.error('Error fetching ENS name from Etherscan:', error);
+        console.error(`Failed to fetch ENS name for address ${address}:`, error);
+        return address;
     }
+}
 
-    return address;
+async function resolveEnsName(address) {
+    const ensName = await fetchEnsName(address);
+    return ensName || address;
 }
 
 async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
