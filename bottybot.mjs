@@ -13,7 +13,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
-// Sales Bot Section
 function runSalesBot() {
     let cachedConversionRate = null;
     let lastFetchedTime = 0;
@@ -451,7 +450,6 @@ function runSalesBot() {
     console.log("Sales bot started.");
 }
 
-// Listing Bot Section
 function runListingBot() {
     let cachedConversionRate = null;
     let lastFetchedTime = 0;
@@ -772,6 +770,8 @@ function runListingBot() {
 
             try {
             const listingContract = listing.asset.contract.toLowerCase();
+            console.log(`Listing contract (from OpenSea): ${listingContract}`);
+            console.log(`Old Wrapper contract (from config): ${OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()}`);
 
             if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                 console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for listings.`);
@@ -782,6 +782,8 @@ function runListingBot() {
                 console.log(`Fetching listings for contract: ${listingContract}`);
                 console.log(`Detected MoonCat listing with order hash ${orderHash}`);
                 await announceMoonCatListing(listing);
+            } else {
+                console.warn(`Unmatched contract address: ${listingContract}. Skipping listing processing.`);
             }
 
                 PROCESSED_LISTINGS.add(orderHash);
@@ -829,7 +831,6 @@ function runListingBot() {
     console.log("Listing bot started.");
 }
 
-// Start Both Bots
 runSalesBot();
 runListingBot();
 
