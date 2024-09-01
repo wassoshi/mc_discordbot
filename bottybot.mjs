@@ -771,18 +771,18 @@ function runListingBot() {
             }
 
             try {
-                const listingContract = listing.asset.contract.toLowerCase();
-                
-                console.log(`Fetching listings for contract: ${listingContract}`);
+            const listingContract = listing.asset.contract.toLowerCase();
 
-                if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
-                    console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for listings.`);
-                    console.log(`Detected OldWrapper listing with order hash ${orderHash}`);
-                    await announceOldWrapperListing(listing);
-                } else if (listingContract === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
-                    console.log(`Detected MoonCat listing with order hash ${orderHash}`);
-                    await announceMoonCatListing(listing);
-                }
+            if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+                console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for listings.`);
+                console.log(`Fetching listings for OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS}`);
+                console.log(`Detected OldWrapper listing with order hash ${orderHash}`);
+                await announceOldWrapperListing(listing);
+            } else if (listingContract === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
+                console.log(`Fetching listings for contract: ${listingContract}`);
+                console.log(`Detected MoonCat listing with order hash ${orderHash}`);
+                await announceMoonCatListing(listing);
+            }
 
                 PROCESSED_LISTINGS.add(orderHash);
 
