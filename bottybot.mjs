@@ -772,6 +772,8 @@ function runListingBot() {
 
             try {
                 const listingContract = listing.asset.contract.toLowerCase();
+                
+                console.log(`Fetching listings for contract: ${listingContract}`);
 
                 if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                     console.log(`Checked OldWrapper contract: ${OLD_WRAPPER_CONTRACT_ADDRESS} for listings.`);
@@ -797,6 +799,8 @@ function runListingBot() {
     }
 
     async function monitorListings() {
+        console.log('Querying OpenSea for MoonCats and Old Wrapper listings...');
+        
         if (firstRun) {
             console.log('Running initial fetch of listings');
             const listings = await fetchListingsFromOpenSea(true);
