@@ -89,7 +89,7 @@ function runSalesBot() {
             const data = await response.json();
             console.log(`Successfully fetched OldWrapper details for token ID ${tokenId}`);
             return {
-                imageUrl: data.image_url,
+                imageUrl: data.display_image_url || data.image_url,
                 name: data.name || `Wrapped MoonCat #${tokenId}`
             };
         } catch (error) {
@@ -517,7 +517,7 @@ function runListingBot() {
             const data = await response.json();
             console.log(`Successfully fetched OldWrapper details for token ID ${tokenId}`);
             return {
-                imageUrl: data.image_url,
+                imageUrl: data.display_image_url || data.image_url,
                 name: data.name || `Wrapped MoonCat #${tokenId}`
             };
         } catch (error) {
@@ -709,76 +709,45 @@ function runListingBot() {
     async function fetchListingsFromOpenSea(initialRun = false) {
         try {
             console.log('Fetching listings from OpenSea');
-            const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=order&order_type=listing&limit=50`;
-            const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=order&order_type=listing&limit=50`;
-
+            const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=order&order_type=listing&limit=50`;
             const headers = {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
 
-            const [responseMoonCats, responseOldWrapper] = await Promise.all([
-                fetch(openseaAPIUrlMoonCats, { headers }),
-                fetch(openseaAPIUrlOldWrapper, { headers })
-            ]);
+            const response = await fetch(openseaAPIUrl, { headers });
+            const data = await response.json();
 
-            const dataMoonCats = await responseMoonCats.json();
-            const dataOldWrapper = await responseOldWrapper.json();
-
-            if (!dataMoonCats || !Array.isArray(dataMoonCats.asset_events) || dataMoonCats.asset_events.length === 0) {
-                console.log('No listings found for MoonCats in the fetched data from OpenSea');
-            }
-
-            if (!dataOldWrapper || !Array.isArray(dataOldWrapper.asset_events) || dataOldWrapper.asset_events.length === 0) {
-                console.log('No listings found for Old Wrapper in the fetched data from OpenSea');
+            if (!data || !Array.isArray(data.asset_events) || data.asset_events.length === 0) {
+                console.log('No listings found in the fetched data from OpenSea');
+                return null;
             }
 
             const currentTime = Date.now();
-            let listings = [];
+            let listings;
 
             if (initialRun) {
                 const ONE_HOUR_MS = 3600000;
-
-                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                listings = data.asset_events.filter(event => {
                     const eventTime = event.event_timestamp * 1000;
                     const isListing = event.order_type === 'listing' && !event.taker;
                     return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
                 }).slice(0, 20);
-
-                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
-                    const eventTime = event.event_timestamp * 1000;
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
-                }).slice(0, 20);
-
-                listings = [...moonCatsListings, ...oldWrapperListings];
 
                 if (listings.length > 0) {
                     lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
                 } else {
-                    lastProcessedTimestamp = Math.max(
-                        Math.max(...dataMoonCats.asset_events.map(event => event.event_timestamp)),
-                        Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
-                    );
+                    lastProcessedTimestamp = Math.max(...data.asset_events.map(event => event.event_timestamp));
                 }
             } else {
-                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                listings = data.asset_events.filter(event => {
                     const isListing = event.order_type === 'listing' && !event.taker;
                     return event.event_timestamp > lastProcessedTimestamp && isListing;
                 });
-
-                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return event.event_timestamp > lastProcessedTimestamp && isListing;
-                });
-
-                listings = [...moonCatsListings, ...oldWrapperListings];
-
                 if (listings.length > 0) {
                     lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
                 }
             }
-
             console.log(`Fetched ${listings.length} listings from OpenSea`);
             return listings;
         } catch (error) {
