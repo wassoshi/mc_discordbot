@@ -19,12 +19,13 @@ function runSalesBot() {
     let lastFetchedTime = 0;
 
     const INFURA_PROJECT_ID = process.env.SALES_INFURA_PROJECT_ID;
+    const ALCHEMY_PROJECT_ID = process.env.SALES_ALCHEMY_PROJECT_ID;
     const OPENSEA_API_KEY = process.env.SALES_OPENSEA_API_KEY;
     const COINMARKETCAP_API_KEY = process.env.SALES_COINMARKETCAP_API_KEY;
     const DISCORD_WEBHOOK_URL = process.env.SALES_DISCORD_WEBHOOK_URL;
 
     const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
-    const ethersProvider = new InfuraProvider('homestead', INFURA_PROJECT_ID);
+    const ethersProvider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
 
     const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
     const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7c40c393dc0f283f318791d746d894ddd3693572';
