@@ -523,7 +523,7 @@ function runListingBot() {
         } catch (error) {
             console.error(`Error fetching OldWrapper details for token ID ${tokenId}:`, error);
             return {
-                imageUrl: 'https://example.com/default-placeholder-image.png',
+                imageUrl: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 name: `Wrapped MoonCat #${tokenId}`
             };
         }
@@ -605,7 +605,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'MoonCatBot',
-                avatar_url: 'https://x.com/mooncatbot/photo',
+                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: `MoonCat Listed`,
                     url: listingUrl,
