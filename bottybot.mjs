@@ -523,7 +523,7 @@ function runListingBot() {
         } catch (error) {
             console.error(`Error fetching OldWrapper details for token ID ${tokenId}:`, error);
             return {
-                imageUrl: 'https://example.com/default-placeholder-image.png',
+                imageUrl: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 name: `Wrapped MoonCat #${tokenId}`
             };
         }
