@@ -605,7 +605,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'MoonCatBot',
-                avatar_url: 'https://x.com/mooncatbot/photo',
+                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: `MoonCat Listed`,
                     url: listingUrl,
