@@ -87,7 +87,7 @@ function runSalesBot() {
         }
     }
 
-    async function getOldWrapperImageAndDetails(tokenId) {
+    async function getOldWrapperImageAndDetails(web3, tokenId) {
         try {
             const realTokenIdHex = await getRealTokenIdFromWrapper(web3, tokenId);
             if (!realTokenIdHex) {
@@ -281,7 +281,7 @@ function runSalesBot() {
         const formattedEthPrice = formatEthPrice(ethPrice);
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(web3, tokenId);
         if (!imageUrl) {
             return;
         }
@@ -493,7 +493,7 @@ function runListingBot() {
         }
     }
 
-    async function getOldWrapperImageAndDetails(tokenId) {
+    async function getOldWrapperImageAndDetails(web3, tokenId) {
         try {
             const realTokenIdHex = await getRealTokenIdFromWrapper(web3, tokenId);
             if (!realTokenIdHex) {
@@ -671,7 +671,7 @@ function runListingBot() {
         const formattedEthPrice = formatEthPrice(listing.payment.quantity / (10 ** listing.payment.decimals));
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name } = await getOldWrapperImageAndDetails(web3, tokenId);
 
         let marketplaceName = "OpenSea";
         let listingUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
