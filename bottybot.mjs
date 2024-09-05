@@ -187,7 +187,7 @@ function runSalesBot() {
         return ensName || address;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
+    async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, rescueIndex = null) {
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -198,12 +198,16 @@ function runSalesBot() {
             const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
             const blurEmoji = '<:logo_blur:1202605694654615593>';
 
+            const chainstationUrl = rescueIndex 
+                ? `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`
+                : `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`;
+
             const payload = {
                 username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: `Adopted`,
-                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
+                    url: chainstationUrl,
                     description: messageText,
                     fields: [
                         { name: 'Marketplace', value: `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, inline: true },
@@ -614,7 +618,7 @@ function runListingBot() {
         BLACKLIST[sellerAddress][tokenId] = currentTime;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
+    async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName, rescueIndex = null) {
         if (!messageText) {
             return;
         }
@@ -622,6 +626,10 @@ function runListingBot() {
         try {
             const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
             const blurEmoji = '<:logo_blur:1202605694654615593>';
+
+            const chainstationUrl = rescueIndex 
+                ? `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`
+                : `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`;
 
             const marketplaceEmoji = marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji;
             const ensNameOrAddress = await resolveEnsName(sellerAddress);
@@ -633,7 +641,7 @@ function runListingBot() {
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: `Listed`,
-                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
+                    url: chainstationUrl,
                     description: `${messageText}`,
                     fields: [
                         { name: 'Seller', value: `[${displaySellerAddress}](https://chainstation.mooncatrescue.com/owners/${sellerAddress})`, inline: true },
