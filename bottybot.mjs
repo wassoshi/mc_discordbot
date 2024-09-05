@@ -187,7 +187,7 @@ function runSalesBot() {
         return ensName || address;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, rescueIndex = null) {
+    async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, isOldWrapper = false, rescueIndex = null) {
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -307,7 +307,7 @@ function runSalesBot() {
 
         let messageText = `MoonCat #${rescueIndex}: ${displayCatId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
+        await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, true, rescueIndex);
     }
 
     async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
@@ -618,7 +618,7 @@ function runListingBot() {
         BLACKLIST[sellerAddress][tokenId] = currentTime;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName, rescueIndex = null) {
+    async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName, isOldWrapper = false, rescueIndex = null) {
         if (!messageText) {
             return;
         }
@@ -730,7 +730,7 @@ function runListingBot() {
 
         const messageText = `${name} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
+        await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, true, rescueIndex);
 
         updateBlacklist(sellerAddress, tokenId);
     }
