@@ -62,7 +62,7 @@ function runSalesBot() {
     const TRANSFER_PROCESS_DELAY_MS = 45000;
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
-    async function getRealTokenIdFromWrapper(tokenId) {
+    async function getRealTokenIdFromWrapper(web3, tokenId) {
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
             const catId = await contract.methods._tokenIDToCatID(tokenId).call();
@@ -89,7 +89,7 @@ function runSalesBot() {
 
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
+            const realTokenIdHex = await getRealTokenIdFromWrapper(web3, tokenId);
             if (!realTokenIdHex) {
                 throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
             }
@@ -482,7 +482,7 @@ function runListingBot() {
         }
     }
 
-    async function getRealTokenIdFromWrapper(tokenId) {
+    async function getRealTokenIdFromWrapper(web3, tokenId) {
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
             const catId = await contract.methods._tokenIDToCatID(tokenId).call();
@@ -495,7 +495,7 @@ function runListingBot() {
 
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
+            const realTokenIdHex = await getRealTokenIdFromWrapper(web3, tokenId);
             if (!realTokenIdHex) {
                 throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
             }
