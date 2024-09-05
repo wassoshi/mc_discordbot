@@ -809,6 +809,17 @@ function runListingBot() {
 runSalesBot();
 runListingBot();
 
+async function getRealTokenIdFromWrapper(tokenId) {
+    try {
+        const contract = new Web3().eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
+        const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+        return catId;
+    } catch (error) {
+        console.error(`Error fetching real token ID for wrapped token ${tokenId}:`, error);
+        return null;
+    }
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Bot is running on port ${PORT}`);
