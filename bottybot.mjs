@@ -62,7 +62,6 @@ function runSalesBot() {
     const TRANSFER_PROCESS_DELAY_MS = 45000;
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
-    // Function to get the real token ID from the old wrapper contract
     async function getRealTokenIdFromWrapper(tokenId) {
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
@@ -88,7 +87,6 @@ function runSalesBot() {
         }
     }
 
-    // Updated function to get old wrapper image and details using the real token ID
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
             const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
@@ -105,7 +103,7 @@ function runSalesBot() {
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
-            const isNamed = data.details.isNamed === "Yes"; // Check if the cat is named
+            const isNamed = data.details.isNamed === "Yes";
 
             return {
                 imageUrl,
@@ -274,7 +272,6 @@ function runSalesBot() {
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
-    // Updated announceOldWrapperSale function
     async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
@@ -289,7 +286,7 @@ function runSalesBot() {
             return;
         }
 
-        const displayCatId = isNamed ? name : `0x${realTokenIdHex}`; // Show name if available, otherwise hex
+        const displayCatId = isNamed ? name : `0x${realTokenIdHex}`;
 
         const currency = paymentToken.symbol;
         let marketplaceName = "OpenSea";
@@ -485,7 +482,6 @@ function runListingBot() {
         }
     }
 
-    // Updated getOldWrapperImageAndDetails for listing bot
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
             const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
