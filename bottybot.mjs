@@ -475,6 +475,17 @@ function runListingBot() {
             ],
             "name": "Transfer",
             "type": "event"
+        },
+        {
+            "inputs": [
+                { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
+            ],
+            "name": "_tokenIDToCatID",
+            "outputs": [
+                { "internalType": "bytes5", "name": "", "type": "bytes5" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
         }
     ];
     const LISTINGS_QUEUE = [];
