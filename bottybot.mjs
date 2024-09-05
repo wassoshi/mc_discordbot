@@ -187,7 +187,7 @@ function runSalesBot() {
         return ensName || address;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, isOldWrapper = false, rescueIndex = null) {
+    async function sendToDiscord(mooncatID, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl, isOldWrapper = false, rescueIndex = null) {
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -198,16 +198,12 @@ function runSalesBot() {
             const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
             const blurEmoji = '<:logo_blur:1202605694654615593>';
 
-            const chainstationUrl = rescueIndex 
-                ? `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`
-                : `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`;
-
             const payload = {
                 username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: `Adopted`,
-                    url: chainstationUrl,
+                    url: `https://chainstation.mooncatrescue.com/mooncats/${mooncatId}`,
                     description: messageText,
                     fields: [
                         { name: 'Marketplace', value: `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, inline: true },
@@ -307,7 +303,7 @@ function runSalesBot() {
 
         let messageText = `MoonCat #${rescueIndex}: ${displayCatId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
+        await sendToDiscord(realTokenIdHex, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
     async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
@@ -618,7 +614,7 @@ function runListingBot() {
         BLACKLIST[sellerAddress][tokenId] = currentTime;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName, isOldWrapper = false, rescueIndex = null) {
+    async function sendToDiscord(mooncatID, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName, marketplaceUrl) {
         if (!messageText) {
             return;
         }
@@ -627,9 +623,6 @@ function runListingBot() {
             const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
             const blurEmoji = '<:logo_blur:1202605694654615593>';
 
-            const chainstationUrl = rescueIndex 
-                ? `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`
-                : `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`;
 
             const marketplaceEmoji = marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji;
             const ensNameOrAddress = await resolveEnsName(sellerAddress);
@@ -641,7 +634,7 @@ function runListingBot() {
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: `Listed`,
-                    url: chainstationUrl,
+                    url: `https://chainstation.mooncatrescue.com/mooncats/${mooncatId}`,
                     description: `${messageText}`,
                     fields: [
                         { name: 'Seller', value: `[${displaySellerAddress}](https://chainstation.mooncatrescue.com/owners/${sellerAddress})`, inline: true },
@@ -718,7 +711,7 @@ function runListingBot() {
         const formattedEthPrice = formatEthPrice(listing.payment.quantity / (10 ** listing.payment.decimals));
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, realTokenIdHex } = await getOldWrapperImageAndDetails(tokenId);
 
         let marketplaceName = "OpenSea";
         let listingUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
@@ -730,7 +723,7 @@ function runListingBot() {
 
         const messageText = `${name} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
+        await sendToDiscord(realTokenIdHex, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
         updateBlacklist(sellerAddress, tokenId);
     }
