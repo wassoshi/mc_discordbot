@@ -62,6 +62,18 @@ function runSalesBot() {
     const TRANSFER_PROCESS_DELAY_MS = 45000;
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
+    // Function to get the real token ID from the old wrapper contract
+    async function getRealTokenIdFromWrapper(tokenId) {
+        try {
+            const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
+            const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+            return catId;
+        } catch (error) {
+            console.error(`Error fetching real token ID for wrapped token ${tokenId}:`, error);
+            return null;
+        }
+    }
+
     async function getMoonCatImageURL(tokenId) {
         try {
             const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
@@ -76,33 +88,40 @@ function runSalesBot() {
         }
     }
 
+    // Updated function to get old wrapper image and details using the real token ID
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()}/${tokenId}`, {
-                method: 'GET',
-                headers: { 'X-API-KEY': OPENSEA_API_KEY }
-            });
+            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
+            if (!realTokenIdHex) {
+                throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
+            }
+
+            const response = await fetch(`https://api.mooncat.community/traits/${realTokenIdHex}`);
             if (!response.ok) {
-                throw new Error(`Failed to fetch details for token ${tokenId} from OpenSea: ${response.statusText}`);
+                throw new Error(`Failed to fetch MoonCat details for token ${realTokenIdHex}: ${response.statusText}`);
             }
             const data = await response.json();
-            
-            let imageUrl = data.display_image_url;
-            if (imageUrl) {
-                const urlObject = new URL(imageUrl);
-                imageUrl = urlObject.origin + urlObject.pathname;
-            } else {
-                imageUrl = `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`;
-            }
-            
+            const rescueIndex = data.details.rescueIndex;
+
+            const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
+            const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
+            const isNamed = data.details.isNamed === "Yes"; // Check if the cat is named
+
             return {
                 imageUrl,
-                name: data.name || `Wrapped MoonCat #${tokenId}`
+                name,
+                rescueIndex,
+                realTokenIdHex,
+                isNamed
             };
         } catch (error) {
-            console.error('Error fetching details from OpenSea:', error);
+            console.error('Error fetching details from MoonCat API:', error);
             return {
-                imageUrl: `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`
+                imageUrl: `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`,
+                name: null,
+                rescueIndex: null,
+                realTokenIdHex: null,
+                isNamed: false
             };
         }
     }
@@ -255,6 +274,7 @@ function runSalesBot() {
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
+    // Updated announceOldWrapperSale function
     async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
@@ -263,10 +283,13 @@ function runSalesBot() {
 
         const formattedEthPrice = formatEthPrice(ethPrice);
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
-        const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
+
+        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         if (!imageUrl) {
             return;
         }
+
+        const displayCatId = isNamed ? name : `0x${realTokenIdHex}`; // Show name if available, otherwise hex
 
         const currency = paymentToken.symbol;
         let marketplaceName = "OpenSea";
@@ -281,7 +304,7 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = `${name} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -462,30 +485,30 @@ function runListingBot() {
         }
     }
 
+    // Updated getOldWrapperImageAndDetails for listing bot
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const response = await fetch(`https://api.opensea.io/api/v1/asset/${OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()}/${tokenId}`, {
-                method: 'GET',
-                headers: { 'X-API-KEY': OPENSEA_API_KEY }
-            });
+            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
+            if (!realTokenIdHex) {
+                throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
+            }
+
+            const response = await fetch(`https://api.mooncat.community/traits/${realTokenIdHex}`);
             if (!response.ok) {
-                throw new Error(`Failed to fetch details for token ${tokenId} from OpenSea: ${response.statusText}`);
+                throw new Error(`Failed to fetch MoonCat details for token ${realTokenIdHex}: ${response.statusText}`);
             }
             const data = await response.json();
-            
-            let imageUrl = data.display_image_url;
-            if (imageUrl) {
-                const urlObject = new URL(imageUrl);
-                imageUrl = urlObject.origin + urlObject.pathname;
-            } else {
-                imageUrl = `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`;
-            }
-            
+            const rescueIndex = data.details.rescueIndex;
+
+            const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
+            const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
+
             return {
                 imageUrl,
-                name: data.name || `Wrapped MoonCat #${tokenId}`
+                name
             };
         } catch (error) {
+            console.error('Error fetching details from MoonCat API:', error);
             return {
                 imageUrl: `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`,
                 name: `Wrapped MoonCat #${tokenId}`
@@ -792,4 +815,5 @@ runListingBot();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+    console.log(`Bot is running on port ${PORT}`);
 });
