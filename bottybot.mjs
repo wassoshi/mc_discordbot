@@ -62,7 +62,7 @@ function runSalesBot() {
     const TRANSFER_PROCESS_DELAY_MS = 45000;
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
-    async function getRealTokenIdFromWrapper(web3, tokenId) {
+    async function getRealTokenIdFromWrapper(tokenId) {
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
             const catId = await contract.methods._tokenIDToCatID(tokenId).call();
@@ -87,9 +87,9 @@ function runSalesBot() {
         }
     }
 
-    async function getOldWrapperImageAndDetails(web3, tokenId) {
+    async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const realTokenIdHex = await getRealTokenIdFromWrapper(web3, tokenId);
+            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
             if (!realTokenIdHex) {
                 throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
             }
@@ -281,7 +281,7 @@ function runSalesBot() {
         const formattedEthPrice = formatEthPrice(ethPrice);
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(web3, tokenId);
+        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         if (!imageUrl) {
             return;
         }
@@ -438,12 +438,14 @@ function runListingBot() {
     let lastProcessedTimestamp = 0;
     let firstRun = true;
 
+    const INFURA_PROJECT_ID = process.env.SALES_INFURA_PROJECT_ID;    
     const ALCHEMY_PROJECT_ID = process.env.LISTING_ALCHEMY_PROJECT_ID;
     const OPENSEA_API_KEY = process.env.LISTING_OPENSEA_API_KEY;
     const COINMARKETCAP_API_KEY = process.env.LISTING_COINMARKETCAP_API_KEY;
     const DISCORD_WEBHOOK_URL = process.env.LISTING_DISCORD_WEBHOOK_URL;
     const ETHERSCAN_API_KEY = process.env.LISTING_ETHERSCAN_API_KEY;
 
+    const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
     const provider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
     const wsProvider = new AlchemyWebSocketProvider('homestead', ALCHEMY_PROJECT_ID);
 
@@ -482,7 +484,7 @@ function runListingBot() {
         }
     }
 
-    async function getRealTokenIdFromWrapper(web3, tokenId) {
+    async function getRealTokenIdFromWrapper(tokenId) {
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
             const catId = await contract.methods._tokenIDToCatID(tokenId).call();
@@ -493,9 +495,9 @@ function runListingBot() {
         }
     }
 
-    async function getOldWrapperImageAndDetails(web3, tokenId) {
+    async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const realTokenIdHex = await getRealTokenIdFromWrapper(web3, tokenId);
+            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
             if (!realTokenIdHex) {
                 throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
             }
@@ -671,7 +673,7 @@ function runListingBot() {
         const formattedEthPrice = formatEthPrice(listing.payment.quantity / (10 ** listing.payment.decimals));
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name } = await getOldWrapperImageAndDetails(web3, tokenId);
+        const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
 
         let marketplaceName = "OpenSea";
         let listingUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
