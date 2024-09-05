@@ -451,6 +451,32 @@ function runListingBot() {
 
     const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
     const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7c40c393dc0f283f318791d746d894ddd3693572';
+
+    const MOONCATS_CONTRACT_ABI = [
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+                { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+                { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" }
+            ],
+            "name": "Transfer",
+            "type": "event"
+        }
+    ];
+
+    const OLD_WRAPPER_CONTRACT_ABI = [
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+                { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+                { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" }
+            ],
+            "name": "Transfer",
+            "type": "event"
+        }
+    ];
     const LISTINGS_QUEUE = [];
     const PROCESSED_LISTINGS = new Set();
     const LISTING_PROCESS_DELAY_MS = 30000;
