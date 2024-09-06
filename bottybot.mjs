@@ -236,6 +236,7 @@ function runSalesBot() {
     }
 
     async function sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
+        console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -712,6 +713,7 @@ function runListingBot() {
     }
 
     async function sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
+        console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
         if (!messageText) {
             return;
         }
