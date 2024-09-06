@@ -357,7 +357,7 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = `MoonCat #${rescueIndex}: ${displayCatId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Old Wrapped as ${tokenID} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
         await sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -832,7 +832,7 @@ function runListingBot() {
             listingUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
         }
 
-        const messageText = `${name} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `${name}; Old Wrapped as ${tokenID} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
         await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
