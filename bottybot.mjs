@@ -351,7 +351,7 @@ function runSalesBot() {
 
         let messageText = `MoonCat #${rescueIndex}: ${displayCatId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
-        await sendOldWrapperSaleToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
+        await sendOldWrapperSaleToDiscord(rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
     async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
