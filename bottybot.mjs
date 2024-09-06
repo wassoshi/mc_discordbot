@@ -235,7 +235,7 @@ function runSalesBot() {
         }
     }
 
-    async function sendOldWrapperSaleToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
+    async function sendOldWrapperSaleToDiscord(rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -250,8 +250,8 @@ function runSalesBot() {
                 username: 'MoonCatBot (Old Wrapper)',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: 'Adopted (Old Wrapper)',
-                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
+                    title: 'Adopted (Wrapped)',
+                    url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
                     description: messageText,
                     fields: [
                         { name: 'Marketplace', value: `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, inline: true },
@@ -275,7 +275,7 @@ function runSalesBot() {
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
             }
-            console.log(`Successfully sent Old Wrapper MoonCat #${tokenId} sale announcement to Discord.`);
+            console.log(`Successfully sent Old Wrapper MoonCat #${rescueIndex} sale announcement to Discord.`);
         } catch (error) {
             console.error('Error sending sale announcement to Discord (Old Wrapper):', error);
             await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
@@ -317,7 +317,7 @@ function runSalesBot() {
 
         let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
+        await sendToDiscord(rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
     async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
@@ -709,7 +709,7 @@ function runListingBot() {
         }
     }
 
-    async function sendOldWrapperListingToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
+    async function sendOldWrapperListingToDiscord(rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
         if (!messageText) {
             return;
         }
@@ -727,8 +727,8 @@ function runListingBot() {
                 username: 'MoonCatBot (Old Wrapper)',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: 'Listed (Old Wrapper)',
-                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
+                    title: 'Listed (Wrapper)',
+                    url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
                     description: `${messageText}`,
                     fields: [
                         { name: 'Seller', value: `[${displaySellerAddress}](https://chainstation.mooncatrescue.com/owners/${sellerAddress})`, inline: true },
@@ -817,7 +817,7 @@ function runListingBot() {
 
         const messageText = `${name} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
-        await sendOldWrapperListingToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
+        await sendOldWrapperListingToDiscord(rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
         updateBlacklist(sellerAddress, tokenId);
     }
