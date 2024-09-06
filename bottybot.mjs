@@ -329,7 +329,7 @@ function runSalesBot() {
         const formattedEthPrice = formatEthPrice(ethPrice);
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         if (!imageUrl) {
             return;
         }
