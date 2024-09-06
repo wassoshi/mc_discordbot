@@ -104,7 +104,7 @@ function runSalesBot() {
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
-            const isNamed = data.details.isNamed === "Yes";
+            const isNamed = data.details.isNamed === "Yes" ? true : false;
             const details = { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
             console.log(`Returning details: ${JSON.stringify(details)}`);
             return details;
@@ -603,6 +603,7 @@ function runListingBot() {
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
+            const isNamed = data.details.isNamed === "Yes" ? true : false;
             const details = { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
             console.log(`Returning details: ${JSON.stringify(details)}`);
             return details;
