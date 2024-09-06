@@ -805,7 +805,7 @@ function runListingBot() {
         const formattedEthPrice = formatEthPrice(listing.payment.quantity / (10 ** listing.payment.decimals));
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, realTokenIdHex } = await getOldWrapperImageAndDetails(tokenId);
 
         let marketplaceName = "OpenSea";
         let listingUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
