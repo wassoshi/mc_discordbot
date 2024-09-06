@@ -245,6 +245,8 @@ function runSalesBot() {
             const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
             const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
             const blurEmoji = '<:logo_blur:1202605694654615593>';
+            
+            console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
                 username: 'MoonCatBot (Old Wrapper)',
