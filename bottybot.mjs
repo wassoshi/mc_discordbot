@@ -235,10 +235,6 @@ function runSalesBot() {
         }
     }
 
-    function tokenIdIsOldWrapper(tokenId) {
-        return OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase() === '0x7c40c393dc0f283f318791d746d894ddd3693572'.toLowerCase();
-    }
-
     async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
@@ -247,29 +243,18 @@ function runSalesBot() {
 
         const formattedEthPrice = formatEthPrice(ethPrice);
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
-        
-        let moonCatData, imageUrl, rescueIndex;
-
-        if (tokenIdIsOldWrapper(tokenId)) {
-            const wrapperData = await getOldWrapperImageAndDetails(tokenId);
-            if (!wrapperData) {
-                return;
-            }
-            moonCatData = wrapperData;
-            imageUrl = wrapperData.imageUrl;
-            rescueIndex = wrapperData.rescueIndex;
-        } else {
-            moonCatData = await getMoonCatNameOrId(tokenId);
-            if (!moonCatData) {
-                return;
-            }
-            rescueIndex = moonCatData.details.catId;
-            imageUrl = await getMoonCatImageURL(tokenId);
+        const moonCatData = await getMoonCatNameOrId(tokenId);
+        if (!moonCatData) {
+            return;
         }
 
-        const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : `MoonCat #${rescueIndex}`;
-        const currency = paymentToken.symbol;
+        const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
+        const imageUrl = await getMoonCatImageURL(tokenId);
+        if (!imageUrl) {
+            return;
+        }
 
+        const currency = paymentToken.symbol;
         let marketplaceName = "OpenSea";
         let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
 
@@ -282,9 +267,7 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = (tokenIdIsOldWrapper(tokenId))
-            ? `Wrapped MoonCat #${rescueIndex}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}) for ${formattedEthPrice} ${currency} ($${usdPrice})`
-            : `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/mooncats/${tokenId}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -680,10 +663,6 @@ function runListingBot() {
         }
     }
 
-    function tokenIdIsOldWrapper(tokenId) {
-        return OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase() === '0x7c40c393dc0f283f318791d746d894ddd3693572'.toLowerCase();
-    }
-
     async function announceMoonCatListing(listing) {
         const sellerAddress = listing.maker;
         const tokenId = listing.asset.identifier;
@@ -699,26 +678,16 @@ function runListingBot() {
 
         const formattedEthPrice = formatEthPrice(listing.payment.quantity / (10 ** listing.payment.decimals));
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
-        
-        let moonCatNameOrId, imageUrl;
+        const moonCatNameOrId = listing.asset.name;
 
-        if (tokenIdIsOldWrapper(tokenId)) {
-            const wrapperData = await getOldWrapperImageAndDetails(tokenId);
-            moonCatNameOrId = wrapperData.name;
-            imageUrl = wrapperData.imageUrl;
-        } else {
-            moonCatNameOrId = listing.asset.name;
-            imageUrl = await getMoonCatImageURL(tokenId);
-        }
+        const imageUrl = await getMoonCatImageURL(tokenId);
 
         const marketplaceName = listing.protocol_address ? "OpenSea" : "Blur";
         const listingUrl = marketplaceName === "Blur"
             ? `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`
             : listing.asset.opensea_url;
 
-        const messageText = (tokenIdIsOldWrapper(tokenId))
-            ? `${moonCatNameOrId} (Wrapped) has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`
-            : `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
         await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
@@ -751,7 +720,7 @@ function runListingBot() {
             listingUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
         }
 
-        const messageText = `${name} (Wrapped) has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `${name} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
         await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
