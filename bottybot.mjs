@@ -105,6 +105,9 @@ function runSalesBot() {
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
             const isNamed = data.details.isNamed === "Yes";
+            const details = { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
+            console.log(`Returning details: ${JSON.stringify(details)}`);
+            return details;
 
             return {
                 imageUrl,
@@ -334,8 +337,7 @@ function runSalesBot() {
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
 
         const { imageUrl, name, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
-        console.log(`announceOldWrapperSale: Using rescueIndex: ${rescueIndex}`);
-        console.log(`announceOldWrapperSale: Using rescueIndex: ${rescueIndex}`);
+        console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
         if (!imageUrl) {
             return;
         }
@@ -601,6 +603,9 @@ function runListingBot() {
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
+            const details = { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
+            console.log(`Returning details: ${JSON.stringify(details)}`);
+            return details;
 
             return {
                 imageUrl,
@@ -816,6 +821,7 @@ function runListingBot() {
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
 
         const { imageUrl, name, realTokenIdHex, rescueIndex } = await getOldWrapperImageAndDetails(tokenId);
+        console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
 
         let marketplaceName = "OpenSea";
         let listingUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
