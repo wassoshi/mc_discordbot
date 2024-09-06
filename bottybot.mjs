@@ -725,6 +725,8 @@ function runListingBot() {
             const shortSellerAddress = sellerAddress.substring(0, 6);
             const displaySellerAddress = ensNameOrAddress !== sellerAddress ? ensNameOrAddress : shortSellerAddress;
 
+            console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
+
             const payload = {
                 username: 'MoonCatBot (Old Wrapper)',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
