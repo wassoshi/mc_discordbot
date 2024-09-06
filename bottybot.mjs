@@ -105,6 +105,8 @@ function runSalesBot() {
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
             const isNamed = data.details.isNamed === "Yes";
 
+            console.log(`TokenID: ${tokenId}, RealTokenIDHex: ${realTokenIdHex}, RescueIndex: ${rescueIndex}`);
+
             return {
                 imageUrl,
                 name,
@@ -594,6 +596,8 @@ function runListingBot() {
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
+
+            console.log(`TokenID: ${tokenId}, RealTokenIDHex: ${realTokenIdHex}, RescueIndex: ${rescueIndex}`);
 
             return {
                 imageUrl,
