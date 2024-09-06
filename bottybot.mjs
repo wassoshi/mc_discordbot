@@ -254,7 +254,7 @@ function runSalesBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot (Old Wrapper)',
+                username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: 'Adopted (Old Wrapper)',
@@ -740,7 +740,7 @@ function runListingBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot (Old Wrapper)',
+                username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: 'Listed (Old Wrapper)',
