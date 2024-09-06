@@ -100,6 +100,7 @@ function runSalesBot() {
             }
             const data = await response.json();
             const rescueIndex = data.details.rescueIndex;
+            console.log(`Fetched rescueIndex: ${rescueIndex} for tokenId: ${tokenId}`);
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
@@ -333,6 +334,8 @@ function runSalesBot() {
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
 
         const { imageUrl, name, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        console.log(`announceOldWrapperSale: Using rescueIndex: ${rescueIndex}`);
+        console.log(`announceOldWrapperSale: Using rescueIndex: ${rescueIndex}`);
         if (!imageUrl) {
             return;
         }
@@ -594,6 +597,7 @@ function runListingBot() {
             }
             const data = await response.json();
             const rescueIndex = data.details.rescueIndex;
+            console.log(`Fetched rescueIndex: ${rescueIndex} for tokenId: ${tokenId}`);
 
             const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
