@@ -89,14 +89,14 @@ function runSalesBot() {
 
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
-            if (!realTokenIdHex) {
+            const tokenIdHex = await getRealTokenIdFromWrapper(tokenId);
+            if (!tokenIdHex) {
                 throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
             }
 
-            const response = await fetch(`https://api.mooncat.community/traits/${realTokenIdHex}`);
+            const response = await fetch(`https://api.mooncat.community/traits/${tokenIdHex}`);
             if (!response.ok) {
-                throw new Error(`Failed to fetch MoonCat details for token ${realTokenIdHex}: ${response.statusText}`);
+                throw new Error(`Failed to fetch MoonCat details for token ${tokenIdHex}: ${response.statusText}`);
             }
             const data = await response.json();
             const rescueIndex = data.details.rescueIndex;
@@ -109,7 +109,7 @@ function runSalesBot() {
                 imageUrl,
                 name,
                 rescueIndex,
-                realTokenIdHex,
+                tokenIdHex,
                 isNamed
             };
         } catch (error) {
@@ -118,7 +118,7 @@ function runSalesBot() {
                 imageUrl: `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`,
                 name: null,
                 rescueIndex: null,
-                realTokenIdHex: null,
+                tokenIdHex: null,
                 isNamed: false
             };
         }
@@ -187,7 +187,7 @@ function runSalesBot() {
         return ensName || address;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
+    async function sendToDiscord(tokenId, tokenIdHex, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -202,8 +202,8 @@ function runSalesBot() {
                 username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: `Adopted`,
-                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
+                    title: 'Adopted',
+                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenIdHex}`,
                     description: messageText,
                     fields: [
                         { name: 'Marketplace', value: `${marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji} [${marketplaceName}](${marketplaceUrl})`, inline: true },
@@ -227,7 +227,7 @@ function runSalesBot() {
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
             }
-            console.log(`Successfully sent MoonCat #${tokenId} announcement to Discord.`);
+            console.log(`Successfully sent MoonCat #${tokenIdHex} announcement to Discord.`);
         } catch (error) {
             console.error('Error sending sale announcement to Discord:', error);
             await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
@@ -281,12 +281,12 @@ function runSalesBot() {
         const formattedEthPrice = formatEthPrice(ethPrice);
         const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, rescueIndex, tokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         if (!imageUrl) {
             return;
         }
 
-        const displayCatId = isNamed ? name : `0x${realTokenIdHex}`;
+        const displayCatId = isNamed ? name : `0x${tokenIdHex}`;
 
         const currency = paymentToken.symbol;
         let marketplaceName = "OpenSea";
@@ -438,7 +438,7 @@ function runListingBot() {
     let lastProcessedTimestamp = 0;
     let firstRun = true;
 
-    const INFURA_PROJECT_ID = process.env.SALES_INFURA_PROJECT_ID;    
+    const INFURA_PROJECT_ID = process.env.SALES_INFURA_PROJECT_ID;
     const ALCHEMY_PROJECT_ID = process.env.LISTING_ALCHEMY_PROJECT_ID;
     const OPENSEA_API_KEY = process.env.LISTING_OPENSEA_API_KEY;
     const COINMARKETCAP_API_KEY = process.env.LISTING_COINMARKETCAP_API_KEY;
@@ -534,14 +534,14 @@ function runListingBot() {
 
     async function getOldWrapperImageAndDetails(tokenId) {
         try {
-            const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
-            if (!realTokenIdHex) {
+            const tokenIdHex = await getRealTokenIdFromWrapper(tokenId);
+            if (!tokenIdHex) {
                 throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
             }
 
-            const response = await fetch(`https://api.mooncat.community/traits/${realTokenIdHex}`);
+            const response = await fetch(`https://api.mooncat.community/traits/${tokenIdHex}`);
             if (!response.ok) {
-                throw new Error(`Failed to fetch MoonCat details for token ${realTokenIdHex}: ${response.statusText}`);
+                throw new Error(`Failed to fetch MoonCat details for token ${tokenIdHex}: ${response.statusText}`);
             }
             const data = await response.json();
             const rescueIndex = data.details.rescueIndex;
@@ -614,7 +614,7 @@ function runListingBot() {
         BLACKLIST[sellerAddress][tokenId] = currentTime;
     }
 
-    async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
+    async function sendToDiscord(tokenId, tokenIdHex, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
         if (!messageText) {
             return;
         }
@@ -632,8 +632,8 @@ function runListingBot() {
                 username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: `Listed`,
-                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
+                    title: 'Listed',
+                    url: `https://chainstation.mooncatrescue.com/mooncats/${tokenIdHex}`,
                     description: `${messageText}`,
                     fields: [
                         { name: 'Seller', value: `[${displaySellerAddress}](https://chainstation.mooncatrescue.com/owners/${sellerAddress})`, inline: true },
@@ -689,7 +689,7 @@ function runListingBot() {
 
         const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
+        await sendToDiscord(tokenId, tokenIdHex, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
         updateBlacklist(sellerAddress, tokenId);
     }
@@ -722,7 +722,7 @@ function runListingBot() {
 
         const messageText = `${name} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
-        await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
+        await sendToDiscord(tokenId, tokenIdHex, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
         updateBlacklist(sellerAddress, tokenId);
     }
