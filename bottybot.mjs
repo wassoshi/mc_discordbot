@@ -666,7 +666,7 @@ function runListingBot() {
             marketplaceName = "Blur";
             listingUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
         }
-        const messageText = `${name}; Old Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Old Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
         await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
         updateBlacklist(sellerAddress, tokenId);
     }
