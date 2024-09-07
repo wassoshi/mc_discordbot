@@ -366,7 +366,7 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Wrapped as ${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Wrapped as #${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
         await sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -883,7 +883,7 @@ function runListingBot() {
     
         const displayCatId = isNamed ? name : `0x${realTokenIdHex}`;
 
-        const messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Wrapped as #${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
         await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
