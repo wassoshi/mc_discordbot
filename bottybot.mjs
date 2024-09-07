@@ -227,6 +227,9 @@ function runSalesBot() {
                 },
                 body: JSON.stringify(payload)
             });
+            const responseText = await response.text();
+            console.log(`Discord response status: ${response.status}`);
+            console.log(`Discord response text: ${responseText}`);
 
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
@@ -278,6 +281,9 @@ function runSalesBot() {
                 },
                 body: JSON.stringify(payload)
             });
+            const responseText = await response.text();
+            console.log(`Discord response status: ${response.status}`);
+            console.log(`Discord response text: ${responseText}`);
 
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
@@ -673,6 +679,7 @@ function runListingBot() {
             BLACKLIST[sellerAddress] = {};
         }
         BLACKLIST[sellerAddress][tokenId] = currentTime;
+        console.log(`Added seller: ${sellerAddress}, tokenId: ${tokenId} to blacklist at ${new Date(currentTime).toISOString()}`);
     }
 
     async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
@@ -781,6 +788,7 @@ function runListingBot() {
         const tokenId = listing.asset.identifier;
 
         if (isBlacklisted(sellerAddress, tokenId)) {
+            console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted. Skipping announcement.`);
             return;
         }
 
@@ -812,6 +820,7 @@ function runListingBot() {
         const tokenId = listing.asset.identifier;
 
         if (isBlacklisted(sellerAddress, tokenId)) {
+            console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted. Skipping announcement.`);
             return;
         }
 
