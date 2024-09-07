@@ -258,10 +258,10 @@ function runSalesBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot (Old Wrapper)',
+                username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: 'Adopted (Old Wrapper)',
+                    title: 'Adopted (Wrapper)',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
                     description: messageText,
                     fields: [
@@ -366,7 +366,7 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Old Wrapped as ${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Wrapped as ${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
 
         await sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -785,10 +785,10 @@ function runListingBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot (Old Wrapper)',
+                username: 'MoonCatBot',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: 'Listed (Old Wrapper)',
+                    title: 'Listed (Wrapper)',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
                     description: `${messageText}`,
                     fields: [
@@ -880,8 +880,10 @@ function runListingBot() {
             marketplaceName = "Blur";
             listingUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
         }
+    
+        const displayCatId = isNamed ? name : `0x${realTokenIdHex}`;
 
-        const messageText = `${name}; Old Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `${displayCatId}; Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
         await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
