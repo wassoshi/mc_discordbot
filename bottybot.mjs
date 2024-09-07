@@ -63,9 +63,11 @@ function runSalesBot() {
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
     async function getRealTokenIdFromWrapper(tokenId) {
+        console.log(`Getting real token ID for wrapped token: ${tokenId}`);
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
             const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+            console.log(`Real token ID: ${catId} for wrapped token: ${tokenId}`);
             return catId;
         } catch (error) {
             console.error(`Error fetching real token ID for wrapped token ${tokenId}:`, error);
@@ -74,12 +76,14 @@ function runSalesBot() {
     }
 
     async function getMoonCatImageURL(tokenId) {
+        console.log(`Fetching MoonCat image URL for tokenId: ${tokenId}`);
         try {
             const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
             }
             const imageUrl = response.url;
+            console.log(`Fetched image URL for tokenId: ${tokenId}: ${imageUrl}`);
             return imageUrl;
         } catch (error) {
             console.error('Error fetching MoonCat image URL:', error);
@@ -88,6 +92,7 @@ function runSalesBot() {
     }
 
     async function getOldWrapperImageAndDetails(tokenId) {
+        console.log(`Fetching details for old wrapped tokenId: ${tokenId}`);
         try {
             const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
             if (!realTokenIdHex) {
@@ -100,22 +105,11 @@ function runSalesBot() {
             }
             const data = await response.json();
             const rescueIndex = data.details.rescueIndex;
-            console.log(`Fetched rescueIndex: ${rescueIndex} for tokenId: ${tokenId}`);
-
-            const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
-            const isNamed = data.details.isNamed === "Yes" ? true : false;
-            const details = { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
-            console.log(`Returning details: ${JSON.stringify(details)}`);
-            return details;
-
-            return {
-                imageUrl,
-                name,
-                rescueIndex,
-                realTokenIdHex,
-                isNamed
-            };
+            const isNamed = data.details.isNamed === "Yes";
+            const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
+            console.log(`Fetched details for tokenId: ${tokenId} - Name: ${name}, RescueIndex: ${rescueIndex}, IsNamed: ${isNamed}`);
+            return { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
         } catch (error) {
             console.error('Error fetching details from MoonCat API:', error);
             return {
@@ -131,14 +125,15 @@ function runSalesBot() {
     async function getEthToUsdConversionRate() {
         const currentTime = Date.now();
         const oneHour = 3600000;
-
         if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
+            console.log(`Using cached ETH to USD conversion rate: ${cachedConversionRate}`);
             return cachedConversionRate;
         }
 
         const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
         const params = new URLSearchParams({ 'symbol': 'ETH', 'convert': 'USD' });
 
+        console.log(`Fetching ETH to USD conversion rate...`);
         try {
             const response = await fetch(`${url}?${params}`, {
                 method: 'GET',
@@ -150,6 +145,7 @@ function runSalesBot() {
             const data = await response.json();
             cachedConversionRate = data.data.ETH.quote.USD.price;
             lastFetchedTime = currentTime;
+            console.log(`Fetched ETH to USD conversion rate: ${cachedConversionRate}`);
             return cachedConversionRate;
         } catch (error) {
             console.error('Error fetching ETH to USD conversion rate:', error);
@@ -158,12 +154,14 @@ function runSalesBot() {
     }
 
     async function getMoonCatNameOrId(tokenId) {
+        console.log(`Fetching MoonCat name or ID for tokenId: ${tokenId}`);
         const tokenIdStr = tokenId.toString();
         const tokenIdHex = tokenIdStr.startsWith('0x') ? tokenIdStr.slice(2) : tokenIdStr;
 
         try {
             const response = await fetch(`https://api.mooncat.community/traits/${tokenIdHex}`);
             const data = await response.json();
+            console.log(`Fetched MoonCat name or ID for tokenId: ${tokenId}:`, data);
             return data;
         } catch (error) {
             console.error(`Error fetching MoonCat name or ID for token ${tokenIdHex}:`, error);
@@ -177,8 +175,10 @@ function runSalesBot() {
     }
 
     async function fetchEnsName(address) {
+        console.log(`Fetching ENS name for address: ${address}`);
         try {
             const ensName = await ethersProvider.lookupAddress(address);
+            console.log(`Fetched ENS name for address: ${address}: ${ensName}`);
             return ensName || address;
         } catch (error) {
             console.error(`Failed to fetch ENS name for address ${address}:`, error);
@@ -192,6 +192,7 @@ function runSalesBot() {
     }
 
     async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
+        console.log(`Preparing to send Discord notification for tokenId: ${tokenId}`);
         if (!messageText) {
             console.error('Error: Message text is empty.');
             return;
@@ -297,6 +298,7 @@ function runSalesBot() {
     }
 
     async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
+        console.log(`Announcing MoonCat sale for tokenId: ${tokenId}`);
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
             return;
@@ -334,6 +336,7 @@ function runSalesBot() {
     }
 
     async function announceOldWrapperSale(realTokenIdHex, tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
+        console.log(`Announcing Old Wrapper sale for tokenId: ${tokenId}`);
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
             return;
@@ -369,6 +372,7 @@ function runSalesBot() {
     }
 
     async function fetchSaleDataFromOpenSea(tokenId, sellerAddress) {
+        console.log(`Fetching sale data from OpenSea for tokenId: ${tokenId}`);
         try {
             await new Promise(resolve => setTimeout(resolve, 10000));
             const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=sale&limit=50`;
@@ -381,6 +385,7 @@ function runSalesBot() {
             const data = await response.json();
 
             if (!data || !Array.isArray(data.asset_events) || data.asset_events.length === 0) {
+                console.log(`No sale events found on OpenSea for tokenId: ${tokenId}`);
                 return null;
             }
 
@@ -392,16 +397,19 @@ function runSalesBot() {
             );
 
             if (!saleEvent) {
+                console.log(`No matching sale event found for tokenId: ${tokenId}`);
                 return null;
             }
 
             if (!saleEvent.seller || !saleEvent.buyer || !saleEvent.payment || !saleEvent.transaction) {
+                console.log(`Incomplete sale data for tokenId: ${tokenId}`);
                 return null;
             }
 
             const paymentToken = saleEvent.payment;
             const ethPrice = paymentToken.quantity / (10 ** paymentToken.decimals);
             const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
+            console.log(`Fetched sale data for tokenId: ${tokenId}`);
             return {
                 tokenId,
                 ethPrice,
@@ -413,13 +421,16 @@ function runSalesBot() {
                 saleSellerAddress: sellerAddress
             };
         } catch (error) {
+            console.error(`Error fetching sale data from OpenSea for tokenId: ${tokenId}`, error);
             return null;
         }
     }
 
     async function processSalesQueue() {
+        console.log('Processing sales queue...');
         while (salesQueue.length > 0) {
             const sale = salesQueue.shift();
+            console.log(`Processing sale for tokenId: ${sale.tokenId}`);
             try {
                 const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
                 if (saleData) {
@@ -434,31 +445,42 @@ function runSalesBot() {
                     await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
                 }
             } catch (error) {
+                console.error(`Error processing sale for tokenId: ${sale.tokenId}`, error);
             }
         }
     }
 
     async function processTransferQueue() {
+        console.log('Processing transfer queue...');
         while (transferQueue.length > 0) {
             const transfer = transferQueue.shift();
+            console.log(`Processing transfer for tokenId: ${transfer.tokenId}`);
             try {
                 await new Promise(resolve => setTimeout(resolve, TRANSFER_PROCESS_DELAY_MS));
                 const receipt = await fetchTransactionReceipt(transfer.transactionHash);
                 if (receipt && receipt.status) {
+                    console.log(`Valid transfer detected for tokenId: ${transfer.tokenId}, pushing to sales queue`);
                     salesQueue.push(transfer);
                     if (salesQueue.length === 1) {
                         processSalesQueue();
                     }
+                } else {
+                    console.log(`Invalid transfer detected for tokenId: ${transfer.tokenId}`);
                 }
             } catch (error) {
+                console.error(`Error processing transfer for tokenId: ${transfer.tokenId}`, error);
             }
         }
     }
 
     async function fetchTransactionReceipt(transactionHash) {
+        console.log(`Fetching transaction receipt for hash: ${transactionHash}`);
         try {
-            return await web3.eth.getTransactionReceipt(transactionHash);
+            const receipt = await web3.eth.getTransactionReceipt(transactionHash);
+            console.log(`Fetched transaction receipt for hash: ${transactionHash}`);
+            return receipt;
         } catch (error) {
+            console.error(`Error fetching transaction receipt for hash: ${transactionHash}`, error);
             return null;
         }
     }
@@ -466,6 +488,7 @@ function runSalesBot() {
     mooncatsContract.events.Transfer({
         fromBlock: 'latest'
     }).on('data', (event) => {
+        console.log(`Transfer event detected for tokenId: ${event.returnValues.tokenId}`);
         transferQueue.push({
             tokenId: event.returnValues.tokenId,
             transactionHash: event.transactionHash,
@@ -475,11 +498,13 @@ function runSalesBot() {
             processTransferQueue();
         }
     }).on('error', (error) => {
+        console.error('Error in MoonCats transfer event listener:', error);
     });
 
     oldWrapperContract.events.Transfer({
         fromBlock: 'latest'
     }).on('data', (event) => {
+        console.log(`Old Wrapper transfer event detected for tokenId: ${event.returnValues.tokenId}`);
         transferQueue.push({
             tokenId: event.returnValues.tokenId,
             transactionHash: event.transactionHash,
@@ -489,6 +514,7 @@ function runSalesBot() {
             processTransferQueue();
         }
     }).on('error', (error) => {
+        console.error('Error in Old Wrapper transfer event listener:', error);
     });
 
     console.log("Sales bot started.");
@@ -558,10 +584,13 @@ function runListingBot() {
     const ONE_DAY_MS = 86400000;
 
     async function fetchEnsName(address) {
+        console.log(`Fetching ENS name for address: ${address}`);
         try {
             const ensName = await provider.lookupAddress(address);
+            console.log(`Fetched ENS name for address: ${address}: ${ensName}`);
             return ensName || address;
         } catch (error) {
+            console.error(`Failed to fetch ENS name for address ${address}:`, error);
             return address;
         }
     }
@@ -572,21 +601,26 @@ function runListingBot() {
     }
 
     async function getMoonCatImageURL(tokenId) {
+        console.log(`Fetching MoonCat image URL for tokenId: ${tokenId}`);
         try {
             const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
             }
+            console.log(`Fetched image URL for tokenId: ${tokenId}`);
             return response.url;
         } catch (error) {
+            console.error(`Error fetching MoonCat image URL for tokenId: ${tokenId}`, error);
             return null;
         }
     }
 
     async function getRealTokenIdFromWrapper(tokenId) {
+        console.log(`Fetching real token ID for wrapped tokenId: ${tokenId}`);
         try {
             const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
             const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+            console.log(`Fetched real token ID for wrapped tokenId: ${tokenId} - CatID: ${catId}`);
             return catId;
         } catch (error) {
             console.error(`Error fetching real token ID for wrapped token ${tokenId}:`, error);
@@ -595,6 +629,7 @@ function runListingBot() {
     }
 
     async function getOldWrapperImageAndDetails(tokenId) {
+        console.log(`Fetching details for old wrapped tokenId: ${tokenId}`);
         try {
             const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
             if (!realTokenIdHex) {
@@ -607,21 +642,13 @@ function runListingBot() {
             }
             const data = await response.json();
             const rescueIndex = data.details.rescueIndex;
-            console.log(`Fetched rescueIndex: ${rescueIndex} for tokenId: ${tokenId}`);
-
-            const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
             const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
-            const isNamed = data.details.isNamed === "Yes" ? true : false;
-            const details = { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
-            console.log(`Returning details: ${JSON.stringify(details)}`);
-            return details;
-
-            return {
-                imageUrl,
-                name
-            };
+            const isNamed = data.details.isNamed === "Yes";
+            const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
+            console.log(`Fetched details for tokenId: ${tokenId} - Name: ${name}, RescueIndex: ${rescueIndex}, IsNamed: ${isNamed}`);
+            return { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
         } catch (error) {
-            console.error('Error fetching details from MoonCat API:', error);
+            console.error(`Error fetching details for old wrapped tokenId: ${tokenId}`, error);
             return {
                 imageUrl: `https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962`,
                 name: `Wrapped MoonCat #${tokenId}`
@@ -632,14 +659,15 @@ function runListingBot() {
     async function getEthToUsdConversionRate() {
         const currentTime = Date.now();
         const oneHour = 3600000;
-
         if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
+            console.log(`Using cached ETH to USD conversion rate: ${cachedConversionRate}`);
             return cachedConversionRate;
         }
 
         const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
         const params = new URLSearchParams({ 'symbol': 'ETH', 'convert': 'USD' });
 
+        console.log(`Fetching ETH to USD conversion rate...`);
         try {
             const response = await fetch(`${url}?${params}`, {
                 method: 'GET',
@@ -651,8 +679,10 @@ function runListingBot() {
             const data = await response.json();
             cachedConversionRate = data.data.ETH.quote.USD.price;
             lastFetchedTime = currentTime;
+            console.log(`Fetched ETH to USD conversion rate: ${cachedConversionRate}`);
             return cachedConversionRate;
         } catch (error) {
+            console.error('Error fetching ETH to USD conversion rate:', error);
             return null;
         }
     }
@@ -668,6 +698,7 @@ function runListingBot() {
             BLACKLIST[sellerAddress][tokenId] &&
             (currentTime - BLACKLIST[sellerAddress][tokenId]) < ONE_DAY_MS
         ) {
+            console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted.`);
             return true;
         }
         return false;
@@ -683,7 +714,9 @@ function runListingBot() {
     }
 
     async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
+        console.log(`Preparing to send Discord notification for listing tokenId: ${tokenId}`);
         if (!messageText) {
+            console.error('Error: Message text is empty.');
             return;
         }
 
@@ -725,7 +758,9 @@ function runListingBot() {
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
             }
+            console.log(`Successfully sent listing announcement for tokenId: ${tokenId} to Discord.`);
         } catch (error) {
+            console.error(`Error sending listing announcement to Discord for tokenId: ${tokenId}`, error);
             await new Promise(resolve => setTimeout(resolve, LISTING_PROCESS_DELAY_MS));
             throw error;
         }
@@ -734,6 +769,7 @@ function runListingBot() {
     async function sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
         console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
         if (!messageText) {
+            console.error('Error: Message text is empty.');
             return;
         }
 
@@ -777,7 +813,9 @@ function runListingBot() {
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
             }
+            console.log(`Successfully sent old wrapper listing announcement for tokenId: ${tokenId} to Discord.`);
         } catch (error) {
+            console.error(`Error sending old wrapper listing announcement to Discord for tokenId: ${tokenId}`, error);
             await new Promise(resolve => setTimeout(resolve, LISTING_PROCESS_DELAY_MS));
             throw error;
         }
@@ -851,6 +889,7 @@ function runListingBot() {
     }
 
     async function fetchListingsFromOpenSea(initialRun = false) {
+        console.log('Fetching listings from OpenSea...');
         try {
             const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=order&order_type=listing&limit=50`;
             const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=order&order_type=listing&limit=50`;
@@ -914,13 +953,16 @@ function runListingBot() {
                 }
             }
 
+            console.log('Fetched listings from OpenSea.');
             return listings;
         } catch (error) {
+            console.error('Error fetching listings from OpenSea:', error);
             return null;
         }
     }
 
     async function processListingsQueue() {
+        console.log('Processing listings queue...');
         LISTINGS_QUEUE.sort((a, b) => a.event_timestamp - b.event_timestamp);
 
         while (LISTINGS_QUEUE.length > 0) {
@@ -928,6 +970,7 @@ function runListingBot() {
             const orderHash = listing.order_hash;
 
             if (PROCESSED_LISTINGS.has(orderHash)) {
+                console.log(`Listing already processed for orderHash: ${orderHash}`);
                 continue;
             }
 
@@ -949,11 +992,13 @@ function runListingBot() {
 
                 await new Promise(resolve => setTimeout(resolve, LISTING_PROCESS_DELAY_MS));
             } catch (error) {
+                console.error(`Error processing listing for orderHash: ${orderHash}`, error);
             }
         }
     }
 
     async function monitorListings() {
+        console.log('Monitoring listings...');
         if (firstRun) {
             const listings = await fetchListingsFromOpenSea(true);
             firstRun = false;
