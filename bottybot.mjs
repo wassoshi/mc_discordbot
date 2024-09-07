@@ -258,10 +258,10 @@ function runSalesBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot',
+                username: 'MoonCatBot (W)',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: 'Adopted (Wrapper)',
+                    title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
                     description: messageText,
                     fields: [
@@ -785,10 +785,10 @@ function runListingBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot',
+                username: 'MoonCatBot (W)',
                 avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
-                    title: 'Listed (Wrapper)',
+                    title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
                     description: `${messageText}`,
                     fields: [
@@ -883,7 +883,7 @@ function runListingBot() {
     
         const displayCatId = isNamed ? name : `0x${realTokenIdHex}`;
 
-        const messageText = `${displayCatId}; Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `MoonCat #${rescueIndex}: ${displayCatId}; Wrapped as ${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
 
         await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
