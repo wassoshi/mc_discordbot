@@ -870,7 +870,7 @@ function runListingBot() {
         const formattedEthPrice = formatEthPrice(listing.payment.quantity / (10 ** listing.payment.decimals));
         const usdPrice = (formattedEthPrice * ethToUsdRate).toFixed(2);
 
-        const { imageUrl, name, realTokenIdHex, rescueIndex } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, realTokenIdHex, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
 
         let marketplaceName = "OpenSea";
