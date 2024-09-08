@@ -13,6 +13,24 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
+function createWeb3Provider() {
+    const wsProvider = new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${process.env.SALES_INFURA_PROJECT_ID}`);
+
+    wsProvider.on('end', (error) => {
+        console.error('WebSocket connection ended. Attempting to reconnect...', error);
+        createWeb3Provider();
+    });
+
+    wsProvider.on('error', (error) => {
+        console.error('WebSocket connection error:', error);
+        createWeb3Provider();
+    });
+
+    return wsProvider;
+}
+
+const web3 = new Web3(createWeb3Provider());
+
 function runSalesBot() {
     let cachedConversionRate = null;
     let lastFetchedTime = 0;
@@ -23,7 +41,6 @@ function runSalesBot() {
     const COINMARKETCAP_API_KEY = process.env.SALES_COINMARKETCAP_API_KEY;
     const DISCORD_WEBHOOK_URL = process.env.SALES_DISCORD_WEBHOOK_URL;
 
-    const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
     const ethersProvider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
 
     const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
@@ -62,17 +79,22 @@ function runSalesBot() {
     const TRANSFER_PROCESS_DELAY_MS = 45000;
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
-    async function getRealTokenIdFromWrapper(tokenId) {
-        console.log(`Getting real token ID for wrapped token: ${tokenId}`);
-        try {
-            const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
-            const catId = await contract.methods._tokenIDToCatID(tokenId).call();
-            console.log(`Real token ID: ${catId} for wrapped token: ${tokenId}`);
-            return catId;
-        } catch (error) {
-            console.error(`Error fetching real token ID for wrapped token ${tokenId}:`, error);
-            return null;
+    async function getRealTokenIdFromWrapper(tokenId, retries = 3) {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
+                const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+                console.log(`Real token ID: ${catId} for wrapped token: ${tokenId}`);
+                return catId;
+            } catch (error) {
+                console.error(`Attempt ${attempt} - Error fetching real token ID for wrapped token ${tokenId}:`, error);
+                if (attempt === retries) {
+                    throw new Error(`Failed after ${retries} retries`);
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
+        return null;
     }
 
     async function getMoonCatImageURL(tokenId) {
