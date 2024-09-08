@@ -456,7 +456,8 @@ function runSalesBot() {
             try {
                 const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
                 if (saleData) {
-                    await announceMoonCatSale(
+                    await announceOldWrapperSale(
+                        saleData.protocolAddress ? saleData.tokenId : saleData.tokenId,
                         saleData.tokenId,
                         saleData.ethPrice,
                         saleData.transactionUrl,
