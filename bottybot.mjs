@@ -398,20 +398,29 @@ function runSalesBot() {
         try {
             await new Promise(resolve => setTimeout(resolve, 10000));
             const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=sale&limit=50`;
+            const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=sale&limit=50`;
             const headers = {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
 
-            const response = await fetch(openseaAPIUrl, { headers });
-            const data = await response.json();
+            // Fetch for both MoonCat and OldWrapper contracts
+            const [moonCatResponse, oldWrapperResponse] = await Promise.all([
+                fetch(openseaAPIUrl, { headers }),
+                fetch(openseaAPIUrlOldWrapper, { headers })
+            ]);
 
-            if (!data || !Array.isArray(data.asset_events) || data.asset_events.length === 0) {
+            const moonCatData = await moonCatResponse.json();
+            const oldWrapperData = await oldWrapperResponse.json();
+
+            const combinedData = [...moonCatData.asset_events, ...oldWrapperData.asset_events];
+
+            if (!combinedData || combinedData.length === 0) {
                 console.log(`No sale events found on OpenSea for tokenId: ${tokenId}`);
                 return null;
             }
 
-            const saleEvent = data.asset_events.find(event =>
+            const saleEvent = combinedData.find(event =>
                 event.nft &&
                 event.nft.identifier.toString() === tokenId.toString() &&
                 event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() &&
@@ -456,14 +465,25 @@ function runSalesBot() {
             try {
                 const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
                 if (saleData) {
-                    await announceMoonCatSale(
-                        saleData.tokenId,
-                        saleData.ethPrice,
-                        saleData.transactionUrl,
-                        saleData.payment,
-                        saleData.protocolAddress,
-                        saleData.toAddress
-                    );
+                    if (sale.tokenId.startsWith("0x7c40")) { // Old wrapper contract
+                        await announceOldWrapperSale(
+                            saleData.tokenId,
+                            saleData.ethPrice,
+                            saleData.transactionUrl,
+                            saleData.payment,
+                            saleData.protocolAddress,
+                            saleData.toAddress
+                        );
+                    } else { // MoonCats contract
+                        await announceMoonCatSale(
+                            saleData.tokenId,
+                            saleData.ethPrice,
+                            saleData.transactionUrl,
+                            saleData.payment,
+                            saleData.protocolAddress,
+                            saleData.toAddress
+                        );
+                    }
                     await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
                 }
             } catch (error) {
