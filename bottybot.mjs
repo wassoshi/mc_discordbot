@@ -6,6 +6,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { InfuraProvider } from 'ethers';
 import { AlchemyProvider, AlchemyWebSocketProvider } from '@ethersproject/providers';
+import { Contract } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,7 @@ function runSalesBot() {
 
     async function getRealTokenIdFromWrapper(tokenId, retries = 3) {
         const provider = new AlchemyProvider('homestead', process.env.SALES_ALCHEMY_PROJECT_ID);
+        console.log(`Using Alchemy provider to fetch real token ID for token: ${tokenId} with retries: ${retries}`);
         const contract = new Contract(OLD_WRAPPER_CONTRACT_ADDRESS, OLD_WRAPPER_CONTRACT_ABI, provider); 
 
         for (let attempt = 1; attempt <= retries; attempt++) {
