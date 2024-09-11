@@ -80,10 +80,12 @@ function runSalesBot() {
     const DISCORD_MESSAGE_DELAY_MS = 1000;
 
     async function getRealTokenIdFromWrapper(tokenId, retries = 3) {
+        const provider = new AlchemyProvider('homestead', process.env.SALES_ALCHEMY_PROJECT_ID);
+        const contract = new Contract(OLD_WRAPPER_CONTRACT_ADDRESS, OLD_WRAPPER_CONTRACT_ABI, provider); 
+
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
-                const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+                const catId = await contract._tokenIDToCatID(tokenId);
                 console.log(`Real token ID: ${catId} for wrapped token: ${tokenId}`);
                 return catId;
             } catch (error) {
@@ -658,10 +660,11 @@ function runListingBot() {
     }
 
     async function getRealTokenIdFromWrapper(tokenId) {
+        const provider = new AlchemyProvider('homestead', process.env.LISTING_ALCHEMY_PROJECT_ID);
+        const contract = new Contract(OLD_WRAPPER_CONTRACT_ADDRESS, OLD_WRAPPER_CONTRACT_ABI, provider);
         console.log(`Fetching real token ID for wrapped tokenId: ${tokenId}`);
         try {
-            const contract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
-            const catId = await contract.methods._tokenIDToCatID(tokenId).call();
+            const catId = await contract._tokenIDToCatID(tokenId);
             console.log(`Fetched real token ID for wrapped tokenId: ${tokenId} - CatID: ${catId}`);
             return catId;
         } catch (error) {
