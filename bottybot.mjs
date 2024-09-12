@@ -469,7 +469,9 @@ function runSalesBot() {
             try {
                 const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
                 if (saleData) {
-                    if (sale.tokenId.startsWith("0x7c40")) { // Old wrapper contract
+                    const contractAddress = saleData.protocolAddress.toLowerCase();
+
+                    if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                         await announceOldWrapperSale(
                             saleData.tokenId,
                             saleData.ethPrice,
@@ -478,7 +480,7 @@ function runSalesBot() {
                             saleData.protocolAddress,
                             saleData.toAddress
                         );
-                    } else { // MoonCats contract
+                    } else if (contractAddress === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
                         await announceMoonCatSale(
                             saleData.tokenId,
                             saleData.ethPrice,
@@ -487,6 +489,8 @@ function runSalesBot() {
                             saleData.protocolAddress,
                             saleData.toAddress
                         );
+                    } else {
+                        console.error(`Unrecognized contract address: ${contractAddress}`);
                     }
                     await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
                 }
