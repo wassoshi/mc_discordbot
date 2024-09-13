@@ -467,16 +467,10 @@ function runSalesBot() {
             const sale = salesQueue.shift();
             console.log(`Processing sale for tokenId: ${sale.tokenId}`);
             try {
-                const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
-                console.log('Full OpenSea sale data response:', JSON.stringify(saleData, null, 2));
+                const contractAddress = sale.contractAddress.toLowerCase();
+                const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, contractAddress);
+
                 if (saleData) {
-                    const nftData = saleData.nft;
-                
-                    if (!nftData || !nftData.contract) {
-                    console.error('Contract address not found in sale data');
-                    continue;
-                }
-                    const contractAddress = nftData.contract.toLowerCase();
 
                     if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                         await announceOldWrapperSale(
@@ -549,7 +543,8 @@ function runSalesBot() {
         transferQueue.push({
             tokenId: event.returnValues.tokenId,
             transactionHash: event.transactionHash,
-            sellerAddress: event.returnValues.from.toLowerCase()
+            sellerAddress: event.returnValues.from.toLowerCase(),
+            contractAddress: MOONCATS_CONTRACT_ADDRESS
         });
         if (transferQueue.length === 1) {
             processTransferQueue();
@@ -566,6 +561,7 @@ function runSalesBot() {
             tokenId: event.returnValues.tokenId,
             transactionHash: event.transactionHash,
             sellerAddress: event.returnValues.from.toLowerCase()
+            contractAddress: OLD_WRAPPER_CONTRACT_ADDRESS
         });
         if (transferQueue.length === 1) {
             processTransferQueue();
