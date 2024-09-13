@@ -469,13 +469,13 @@ function runSalesBot() {
             try {
                 const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
                 if (saleData) {
-                    const contractAddress = saleData.nft?.contract?.toLowerCase();
-
-                    if (!contractAddress) {
-                        console.error('Contract address not found in sale data');
-                        continue;
-                    }
-
+                    const nftData = saleData.nft;
+                
+                    if (!nftData || !nftData.contract) {
+                    console.error('Contract address not found in sale data');
+                    continue;
+                }
+                    const contractAddress = nftData.contract.toLowerCase();
 
                     if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
                         await announceOldWrapperSale(
