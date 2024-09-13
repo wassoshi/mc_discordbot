@@ -560,7 +560,7 @@ function runSalesBot() {
         transferQueue.push({
             tokenId: event.returnValues.tokenId,
             transactionHash: event.transactionHash,
-            sellerAddress: event.returnValues.from.toLowerCase()
+            sellerAddress: event.returnValues.from.toLowerCase(),
             contractAddress: OLD_WRAPPER_CONTRACT_ADDRESS
         });
         if (transferQueue.length === 1) {
