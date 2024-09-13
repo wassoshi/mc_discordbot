@@ -468,6 +468,7 @@ function runSalesBot() {
             console.log(`Processing sale for tokenId: ${sale.tokenId}`);
             try {
                 const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress);
+                console.log('Full OpenSea sale data response:', JSON.stringify(saleData, null, 2));
                 if (saleData) {
                     const nftData = saleData.nft;
                 
