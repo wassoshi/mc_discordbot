@@ -540,8 +540,17 @@ function runSalesBot() {
         }
     }
 
+    let isProcessingSales = false;
+
     async function processSalesQueue() {
+        if (isProcessingSales) {
+            console.log('Sales queue processing is already in progress.');
+            return;
+        }
+
+        isProcessingSales = true;
         console.log('Processing sales queue...');
+
         while (salesQueue.length > 0) {
             const sale = salesQueue.shift();
             console.log(`Processing sale for tokenId: ${sale.tokenId}`);
@@ -578,9 +587,18 @@ function runSalesBot() {
                 console.error(`Error processing sale for tokenId: ${sale.tokenId}`, error);
             }
         }
+        isProcessingSales = false;
+        console.log('Finished processing sales queue.');
     }
 
+    let isProcessingTransfers = false;
+
     async function processTransferQueue() {
+        if (isProcessingTransfers) {
+            console.log('Transfer queue processing is already in progress.');
+            return;
+        }
+        isProcessingTransfers = true;
         console.log('Processing transfer queue...');
         while (transferQueue.length > 0) {
             const transfer = transferQueue.shift();
@@ -591,7 +609,7 @@ function runSalesBot() {
                 if (receipt && receipt.status) {
                     console.log(`Valid transfer detected for tokenId: ${transfer.tokenId}, pushing to sales queue`);
                     salesQueue.push(transfer);
-                    if (salesQueue.length === 1) {
+                    if (!isProcessingSales) {
                         processSalesQueue();
                     }
                 } else {
@@ -601,6 +619,10 @@ function runSalesBot() {
                 console.error(`Error processing transfer for tokenId: ${transfer.tokenId}`, error);
             }
         }
+
+        isProcessingTransfers = false;
+        console.log('Finished processing transfer queue.');
+
     }
 
     async function fetchTransactionReceipt(transactionHash) {
