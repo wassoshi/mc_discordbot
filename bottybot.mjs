@@ -53,11 +53,8 @@ function createWeb3Provider() {
             const healthStatus = wsProvider.readyState === WebSocket.OPEN ? 'open' : 'closed';
             console.log(`WebSocket health check: Connection is ${healthStatus}`);
             if (healthStatus === 'closed') {
-                reconnectIfNeeded(); // Attempt reconnection if health check shows closed
+                reconnectIfNeeded();
             }
-        }, 120000); // Check every 2 minutes
-
-        return wsProvider;
         }, 120000);
 
         return wsProvider;
