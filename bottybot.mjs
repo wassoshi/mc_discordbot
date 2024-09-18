@@ -19,11 +19,11 @@ function createWeb3Provider() {
     let retryCount = 0;
     let reconnecting = false;
     let wsProvider = null;
+    let pingInterval = null;
 
     const baseReconnectInterval = 1000;
     const maxReconnectInterval = 30000;
 
-    // Exponential backoff with a cap at 30 seconds
     const reconnectDelay = (retries) => Math.min(baseReconnectInterval * (2 ** retries), maxReconnectInterval);
 
     function setupWebSocketProvider() {
@@ -38,15 +38,18 @@ function createWeb3Provider() {
             console.log('WebSocket connection established.');
             retryCount = 0;
             reconnecting = false;
+            startPing();
         });
 
         wsProvider.on('end', (error) => {
             console.error('WebSocket connection ended. Attempting to reconnect...', error);
+            stopPing();
             reconnectIfNeeded();
         });
 
         wsProvider.on('error', (error) => {
             console.error('WebSocket connection error:', error);
+            stopPing();
             reconnectIfNeeded();
         });
         setInterval(() => {
@@ -85,6 +88,22 @@ function createWeb3Provider() {
 
             web3.setProvider(setupWebSocketProvider());
         }, delay);
+    }
+
+    function startPing() {
+        stopPing();
+        pingInterval = setInterval(() => {
+            console.log('Sending ping to keep WebSocket alive...');
+            wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', () => {});
+        }, 30000);
+    }
+
+
+    function stopPing() {
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
     }
 
     return setupWebSocketProvider();
