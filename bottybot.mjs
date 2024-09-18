@@ -15,13 +15,13 @@ const app = express();
 app.use(express.json());
 
 function createWeb3Provider() {
-    const maxRetries = 10; // Maximum number of reconnection attempts
+    const maxRetries = 10;
     let retryCount = 0;
     let reconnecting = false;
     let wsProvider = null;
 
-    const baseReconnectInterval = 1000; // Start with 1 second
-    const maxReconnectInterval = 30000; // Max delay is 30 seconds
+    const baseReconnectInterval = 1000;
+    const maxReconnectInterval = 30000;
 
     // Exponential backoff with a cap at 30 seconds
     const reconnectDelay = (retries) => Math.min(baseReconnectInterval * (2 ** retries), maxReconnectInterval);
@@ -36,7 +36,7 @@ function createWeb3Provider() {
 
         wsProvider.on('connect', () => {
             console.log('WebSocket connection established.');
-            retryCount = 0; // Reset retry count after successful connection
+            retryCount = 0;
             reconnecting = false;
         });
 
@@ -49,6 +49,10 @@ function createWeb3Provider() {
             console.error('WebSocket connection error:', error);
             reconnectIfNeeded();
         });
+        setInterval(() => {
+            const healthStatus = wsProvider.readyState === WebSocket.OPEN ? 'open' : 'closed';
+            console.log(`WebSocket health check: Connection is ${healthStatus}`);
+        }, 120000);
 
         return wsProvider;
     }
