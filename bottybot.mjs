@@ -15,51 +15,69 @@ const app = express();
 app.use(express.json());
 
 function createWeb3Provider() {
-    const maxRetries = 5;
+    const maxRetries = 10; // Maximum number of reconnection attempts
     let retryCount = 0;
     let reconnecting = false;
-    const reconnectDelay = (retries) => Math.min(3000 * (2 ** retries), 30000); // Exponential backoff with a max delay of 30 seconds
+    let wsProvider = null;
+
+    const baseReconnectInterval = 1000; // Start with 1 second
+    const maxReconnectInterval = 30000; // Max delay is 30 seconds
+
+    // Exponential backoff with a cap at 30 seconds
+    const reconnectDelay = (retries) => Math.min(baseReconnectInterval * (2 ** retries), maxReconnectInterval);
 
     function setupWebSocketProvider() {
-        const wsProvider = new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${process.env.SALES_INFURA_PROJECT_ID}`);
+        if (wsProvider && wsProvider.connected) {
+            console.log("WebSocket is already connected.");
+            return wsProvider;
+        }
+
+        wsProvider = new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${process.env.SALES_INFURA_PROJECT_ID}`);
 
         wsProvider.on('connect', () => {
             console.log('WebSocket connection established.');
-            retryCount = 0; // Reset retry counter on successful connection
+            retryCount = 0; // Reset retry count after successful connection
             reconnecting = false;
         });
 
         wsProvider.on('end', (error) => {
             console.error('WebSocket connection ended. Attempting to reconnect...', error);
-            retryConnection();
+            reconnectIfNeeded();
         });
 
         wsProvider.on('error', (error) => {
             console.error('WebSocket connection error:', error);
-            retryConnection();
+            reconnectIfNeeded();
         });
-
-        setInterval(() => {
-            if (wsProvider.readyState !== 1) {
-                console.warn('WebSocket appears closed. Reconnecting...');
-                retryConnection();
-            }
-        }, 30000);
 
         return wsProvider;
     }
 
-    function retryConnection() {
-        if (retryCount < maxRetries) {
-            setTimeout(() => {
-                retryCount += 1;
-                console.log(`Reconnection attempt #${retryCount}`);
-                web3.setProvider(setupWebSocketProvider());
-            }, reconnectDelay(retryCount));
-        } else {
-            console.error('Max reconnection attempts reached. Please check connection or API provider.');
-            reconnecting = false;
+    function reconnectIfNeeded() {
+        if (reconnecting) {
+            console.log("Reconnection already in progress, skipping duplicate reconnection.");
+            return;
         }
+
+        if (retryCount >= maxRetries) {
+            console.error('Max reconnection attempts reached. Please check your connection or API provider.');
+            return;
+        }
+
+        reconnecting = true;
+        retryCount += 1;
+
+        const delay = reconnectDelay(retryCount);
+        console.log(`Reconnection attempt #${retryCount} in ${delay / 1000} seconds...`);
+
+        setTimeout(() => {
+            console.log(`Attempting to reconnect (attempt #${retryCount})...`);
+            if (wsProvider) {
+                wsProvider.disconnect();
+            }
+
+            web3.setProvider(setupWebSocketProvider());
+        }, delay);
     }
 
     return setupWebSocketProvider();
