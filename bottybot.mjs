@@ -357,9 +357,9 @@ function runSalesBot() {
         }
 
         try {
-            const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
-            const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
-            const blurEmoji = '<:logo_blur:1202605694654615593>';
+            const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
+            const etherScanEmoji = '<:logo_etherscan:1202580047765180498>';
+            const blurEmoji = '<:logo_blur:1202577510458728458>';
             
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
@@ -877,8 +877,8 @@ function runListingBot() {
         }
 
         try {
-            const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
-            const blurEmoji = '<:logo_blur:1202605694654615593>';
+            const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
+            const blurEmoji = '<:logo_blur:1202577510458728458>';
 
             const marketplaceEmoji = marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji;
             const ensNameOrAddress = await resolveEnsName(sellerAddress);
@@ -930,8 +930,8 @@ function runListingBot() {
         }
 
         try {
-            const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
-            const blurEmoji = '<:logo_blur:1202605694654615593>';
+            const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
+            const blurEmoji = '<:logo_blur:1202577510458728458>';
 
             const marketplaceEmoji = marketplaceName === "OpenSea" ? openSeaEmoji : blurEmoji;
             const ensNameOrAddress = await resolveEnsName(sellerAddress);
