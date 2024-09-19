@@ -304,9 +304,9 @@ function runSalesBot() {
         }
 
         try {
-            const openSeaEmoji = '<:logo_opensea:1286208862885511168>';
-            const etherScanEmoji = '<:logo_etherscan:1286208862885511168>';
-            const blurEmoji = '<:logo_blur:1286208862885511168>';
+            const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
+            const etherScanEmoji = '<:logo_etherscan:1202580047765180498>';
+            const blurEmoji = '<:logo_blur:1202577510458728458>';
 
             const payload = {
                 username: 'MoonCatBot',
