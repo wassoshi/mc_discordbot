@@ -95,7 +95,7 @@ function createWeb3Provider() {
         pingInterval = setInterval(() => {
             console.log('Sending ping to keep WebSocket alive...');
             wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', () => {});
-        }, 30000);
+        }, 60000);
     }
 
 
@@ -304,13 +304,13 @@ function runSalesBot() {
         }
 
         try {
-            const openSeaEmoji = '<:logo_opensea:1202605707325743145>';
-            const etherScanEmoji = '<:logo_etherscan:1202605702913462322>';
-            const blurEmoji = '<:logo_blur:1202605694654615593>';
+            const openSeaEmoji = '<:logo_opensea~1:>';
+            const etherScanEmoji = '<:logo_blur~1:>';
+            const blurEmoji = '<:logo_etherscan~1:';
 
             const payload = {
                 username: 'MoonCatBot',
-                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
+                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/side.webp',
                 embeds: [{
                     title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
@@ -364,7 +364,7 @@ function runSalesBot() {
 
             const payload = {
                 username: 'MoonCatBot (W)',
-                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
+                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/side.webp',
                 embeds: [{
                     title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
@@ -886,7 +886,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'MoonCatBot',
-                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
+                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/front.webp',
                 embeds: [{
                     title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
@@ -941,7 +941,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'MoonCatBot (W)',
-                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
+                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/front.webp',
                 embeds: [{
                     title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
