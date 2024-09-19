@@ -310,7 +310,7 @@ function runSalesBot() {
 
 
             const payload = {
-                username: 'MoonCatBot',
+                username: 'mooncatbot',
                 avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/side.webp',
                 embeds: [{
                     title: 'Adopted',
@@ -364,7 +364,7 @@ function runSalesBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot (W)',
+                username: 'mooncatbot (w)',
                 avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/side.webp',
                 embeds: [{
                     title: 'Adopted',
@@ -886,7 +886,7 @@ function runListingBot() {
             const displaySellerAddress = ensNameOrAddress !== sellerAddress ? ensNameOrAddress : shortSellerAddress;
 
             const payload = {
-                username: 'MoonCatBot',
+                username: 'mooncatbot',
                 avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/front.webp',
                 embeds: [{
                     title: 'Listed',
@@ -941,7 +941,7 @@ function runListingBot() {
             console.log(`Passing rescueIndex: ${rescueIndex} to Chainstation link`);
 
             const payload = {
-                username: 'MoonCatBot (W)',
+                username: 'mooncatbot (w)',
                 avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/front.webp',
                 embeds: [{
                     title: 'Listed',
