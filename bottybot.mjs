@@ -58,7 +58,7 @@ function createWeb3Provider() {
             if (healthStatus === 'closed') {
                 reconnectIfNeeded();
             }
-        }, 120000);
+        }, 600000);
 
         return wsProvider;
     }
@@ -95,7 +95,7 @@ function createWeb3Provider() {
         pingInterval = setInterval(() => {
             console.log('Sending ping to keep WebSocket alive...');
             wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', () => {});
-        }, 60000);
+        }, 300000);
     }
 
 
