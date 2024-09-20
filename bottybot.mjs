@@ -4,7 +4,6 @@ import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import sharp from 'sharp';
-import { InfuraProvider } from 'ethers';
 import { AlchemyProvider, AlchemyWebSocketProvider } from '@ethersproject/providers';
 import { Contract } from 'ethers';
 
@@ -115,7 +114,6 @@ function runSalesBot() {
     let cachedConversionRate = null;
     let lastFetchedTime = 0;
 
-    const INFURA_PROJECT_ID = process.env.SALES_INFURA_PROJECT_ID;
     const ALCHEMY_PROJECT_ID = process.env.SALES_ALCHEMY_PROJECT_ID;
     const OPENSEA_API_KEY = process.env.SALES_OPENSEA_API_KEY;
     const COINMARKETCAP_API_KEY = process.env.SALES_COINMARKETCAP_API_KEY;
@@ -311,7 +309,7 @@ function runSalesBot() {
 
             const payload = {
                 username: 'mooncatbot',
-                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/side.webp',
+                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
@@ -365,7 +363,7 @@ function runSalesBot() {
 
             const payload = {
                 username: 'mooncatbot (w)',
-                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/side.webp',
+                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
@@ -681,14 +679,12 @@ function runListingBot() {
     let lastProcessedTimestamp = 0;
     let firstRun = true;
 
-    const INFURA_PROJECT_ID = process.env.SALES_INFURA_PROJECT_ID;
     const ALCHEMY_PROJECT_ID = process.env.LISTING_ALCHEMY_PROJECT_ID;
     const OPENSEA_API_KEY = process.env.LISTING_OPENSEA_API_KEY;
     const COINMARKETCAP_API_KEY = process.env.LISTING_COINMARKETCAP_API_KEY;
     const DISCORD_WEBHOOK_URL = process.env.LISTING_DISCORD_WEBHOOK_URL;
     const ETHERSCAN_API_KEY = process.env.LISTING_ETHERSCAN_API_KEY;
 
-    const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://mainnet.infura.io/ws/v3/${INFURA_PROJECT_ID}`));
     const provider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
     const wsProvider = new AlchemyWebSocketProvider('homestead', ALCHEMY_PROJECT_ID);
 
@@ -887,7 +883,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'mooncatbot',
-                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/front.webp',
+                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
@@ -942,7 +938,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'mooncatbot (w)',
-                avatar_url: 'https://raw.githubusercontent.com/wassoshi/mc_discordbot/master/front.webp',
+                avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
                 embeds: [{
                     title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
