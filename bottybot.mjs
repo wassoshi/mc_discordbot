@@ -302,9 +302,9 @@ function runSalesBot() {
         }
 
         try {
-            const openSeaEmoji = 'https://cdn.discordapp.com/emojis/1202575710791933982.webp?size=32&quality=lossless';
-            const blurEmoji = 'https://cdn.discordapp.com/emojis/1202577510458728458.webp?size=32&quality=lossless';
-            const etherScanEmoji = 'https://cdn.discordapp.com/emojis/1202580047765180498.webp?size=32&quality=lossless';
+            const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
+            const blurEmoji = '<:logo_blur:1202577510458728458>';
+            const etherScanEmoji = '<:logo_etherscan:1202580047765180498>';
 
 
             const payload = {
