@@ -1185,7 +1185,7 @@ async function runNameBot() {
     const nameProvider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
 
     const MOONCATS_NAMING_CONTRACT_ADDRESS = '0x60cd862c9C687A9dE49aecdC3A99b74A4fc54aB6';
-    
+
     const moonCatsNamingAbi = [
         {
             "anonymous": false,
@@ -1199,6 +1199,9 @@ async function runNameBot() {
     ];
 
     const moonCatsNamingContract = new web3.eth.Contract(moonCatsNamingAbi, MOONCATS_NAMING_CONTRACT_ADDRESS);
+    function formatCatId(catId) {
+        return `0x${catId.slice(2, 12)}`;
+    }
 
     async function getMoonCatImageURL(catId) {
         console.log(`Fetching MoonCat image URL for catId: ${catId}`);
@@ -1214,15 +1217,30 @@ async function runNameBot() {
         }
     }
 
-    async function sendNameToDiscord(catId, name, imageUrl) {
+    async function getRescueIndex(catId) {
+        console.log(`Fetching MoonCat rescue index for catId: ${catId}`);
+        try {
+            const response = await fetch(`https://api.mooncat.community/traits/${catId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch MoonCat rescue index: ${response.statusText}`);
+            }
+            const data = await response.json();
+            return data.details.rescueIndex;
+        } catch (error) {
+            console.error('Error fetching rescue index:', error);
+            return null;
+        }
+    }
+
+    async function sendNameToDiscord(catId, name, imageUrl, rescueIndex) {
         console.log(`Sending naming event for catId: ${catId}, name: ${name} to Discord`);
         const payload = {
             username: 'mooncatbot',
             avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
             embeds: [{
                 title: 'Named',
-                url: `https://chainstation.mooncatrescue.com/mooncats/${catId}`,
-                description: `MoonCat #${catId} has been named ${name}!`,
+                url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
+                description: `MoonCat #${rescueIndex}: ${catId} has been named ${name}!`,
                 color: 3447003,
                 image: {
                     url: imageUrl
@@ -1254,8 +1272,13 @@ async function runNameBot() {
         }
         const { catId, catName } = event.returnValues;
         try {
-            const imageUrl = await getMoonCatImageURL(catId);
-            await sendNameToDiscord(catId, web3.utils.hexToUtf8(catName), imageUrl);
+            const formattedCatId = formatCatId(catId);
+            const imageUrl = await getMoonCatImageURL(formattedCatId);
+            const rescueIndex = await getRescueIndex(formattedCatId);
+
+            if (rescueIndex) {
+                await sendNameToDiscord(formattedCatId, web3.utils.hexToUtf8(catName), imageUrl, rescueIndex);
+            }
         } catch (error) {
             console.error('Error handling CatNamed event:', error);
         }
