@@ -1178,8 +1178,96 @@ function runListingBot() {
     monitorListings();
 }
 
+async function runNameBot() {
+    const ALCHEMY_PROJECT_ID = process.env.NAMING_ALCHEMY_PROJECT_ID;
+    const DISCORD_WEBHOOK_URL = process.env.NAMING_DISCORD_WEBHOOK_URL;
+
+    const nameProvider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
+
+    const MOONCATS_NAMING_CONTRACT_ADDRESS = '0x60cd862c9c687a9de49aecdC3a99b74a4fc54ab6';
+    
+    const moonCatsNamingAbi = [
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": true, "name": "catId", "type": "bytes5" },
+                { "indexed": false, "name": "catName", "type": "bytes32" }
+            ],
+            "name": "CatNamed",
+            "type": "event"
+        }
+    ];
+
+    const moonCatsNamingContract = new web3.eth.Contract(moonCatsNamingAbi, MOONCATS_NAMING_CONTRACT_ADDRESS);
+
+    async function getMoonCatImageURL(catId) {
+        console.log(`Fetching MoonCat image URL for catId: ${catId}`);
+        try {
+            const response = await fetch(`https://api.mooncat.community/regular-image/${catId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
+            }
+            return response.url;
+        } catch (error) {
+            console.error('Error fetching MoonCat image URL:', error);
+            return null;
+        }
+    }
+
+    async function sendNameToDiscord(catId, name, imageUrl) {
+        console.log(`Sending naming event for catId: ${catId}, name: ${name} to Discord`);
+        const payload = {
+            username: 'mooncatbot',
+            avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
+            embeds: [{
+                title: 'Named',
+                url: `https://chainstation.mooncatrescue.com/mooncats/${catId}`,
+                description: `MoonCat #${catId} has been named ${name}!`,
+                color: 3447003,
+                image: {
+                    url: imageUrl
+                }
+            }]
+        };
+
+        try {
+            const response = await fetch(DISCORD_WEBHOOK_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error sending name event to Discord: ${response.statusText}`);
+            }
+        } catch (error) {
+            throw new Error(`Failed to send name event to Discord: ${error}`);
+        }
+    }
+
+    moonCatsNamingContract.events.CatNamed({}, async (error, event) => {
+        if (error) {
+            console.error('Error receiving CatNamed event:', error);
+            return;
+        }
+        const { catId, catName } = event.returnValues;
+        try {
+            const imageUrl = await getMoonCatImageURL(catId);
+            await sendNameToDiscord(catId, web3.utils.hexToUtf8(catName), imageUrl);
+        } catch (error) {
+            console.error('Error handling CatNamed event:', error);
+        }
+    });
+
+    console.log('Name bot is running.');
+}
+
+
 runSalesBot();
 runListingBot();
+runNameBot();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
