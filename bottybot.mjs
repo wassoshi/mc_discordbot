@@ -1184,7 +1184,7 @@ async function runNameBot() {
 
     const nameProvider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
 
-    const MOONCATS_NAMING_CONTRACT_ADDRESS = '0x60cd862c9c687a9de49aecdC3a99b74a4fc54ab6';
+    const MOONCATS_NAMING_CONTRACT_ADDRESS = '0x60cd862c9C687A9dE49aecdC3A99b74A4fc54aB6';
     
     const moonCatsNamingAbi = [
         {
