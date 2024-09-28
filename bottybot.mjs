@@ -23,7 +23,12 @@ function createWeb3Provider() {
     const baseReconnectInterval = 1000;
     const maxReconnectInterval = 30000;
 
-    const reconnectDelay = (retries) => Math.min(baseReconnectInterval * (2 ** retries), maxReconnectInterval);
+    const reconnectDelay = (retries) => {
+        const baseReconnectInterval = 1000;
+        const maxReconnectInterval = 30000;
+        const jitter = Math.random() * 1000;
+        return Math.min(baseReconnectInterval * (2 ** retries) + jitter, maxReconnectInterval);
+    };
 
     function setupWebSocketProvider() {
         if (wsProvider && wsProvider.connected) {
@@ -92,11 +97,15 @@ function createWeb3Provider() {
     function startPing() {
         stopPing();
         pingInterval = setInterval(() => {
-            console.log('Sending ping to keep WebSocket alive...');
-            wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', () => {});
+            if (wsProvider.connected) {
+                console.log('Sending ping to keep WebSocket alive...');
+                wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', () => {});
+            } else {
+                console.log('WebSocket is not connected, attempting reconnection.');
+                reconnectIfNeeded();
+            }
         }, 300000);
     }
-
 
     function stopPing() {
         if (pingInterval) {
@@ -486,7 +495,6 @@ function runSalesBot() {
                 'Accept': 'application/json'
             };
 
-            // Fetch for both MoonCat and OldWrapper contracts
             const [moonCatResponse, oldWrapperResponse] = await Promise.all([
                 fetch(openseaAPIUrl, { headers }),
                 fetch(openseaAPIUrlOldWrapper, { headers })
