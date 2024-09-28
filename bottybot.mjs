@@ -68,7 +68,7 @@ function createWeb3Provider() {
     }
 
     function reconnectIfNeeded() {
-        if (reconnecting) {
+        if (reconnecting || (wsProvider && wsProvider.connected)) {
             console.log("Reconnection already in progress, skipping duplicate reconnection.");
             return;
         }
@@ -86,11 +86,15 @@ function createWeb3Provider() {
 
         setTimeout(() => {
             console.log(`Attempting to reconnect (attempt #${retryCount})...`);
-            if (wsProvider) {
-                wsProvider.disconnect();
+            try {
+                if (wsProvider && wsProvider.connected) {
+                    wsProvider.disconnect();
+                }
+                web3.setProvider(setupWebSocketProvider());
+            } catch (error) {
+                console.error(`Reconnection attempt failed: ${error.message}`);
+                reconnecting = false; // Allow further reconnection attempts
             }
-
-            web3.setProvider(setupWebSocketProvider());
         }, delay);
     }
 
@@ -104,7 +108,7 @@ function createWeb3Provider() {
                 console.log('WebSocket is not connected, attempting reconnection.');
                 reconnectIfNeeded();
             }
-        }, 300000);
+        }, 600000);
     }
 
     function stopPing() {
