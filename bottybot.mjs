@@ -106,7 +106,7 @@ function createWeb3Provider() {
                 wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', (err) => {
                     if (err) {
                         console.error("Ping error:", err);
-                        reconnectIfNeeded(); // Attempt reconnection if ping fails
+                        reconnectIfNeeded();
                     }
                 });
             } else {
@@ -114,6 +114,7 @@ function createWeb3Provider() {
                 reconnectIfNeeded();
             }
         }, 600000);
+    }
 
     function stopPing() {
         if (pingInterval) {
