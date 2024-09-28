@@ -103,13 +103,17 @@ function createWeb3Provider() {
         pingInterval = setInterval(() => {
             if (wsProvider.connected) {
                 console.log('Sending ping to keep WebSocket alive...');
-                wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', () => {});
+                wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', (err) => {
+                    if (err) {
+                        console.error("Ping error:", err);
+                        reconnectIfNeeded(); // Attempt reconnection if ping fails
+                    }
+                });
             } else {
                 console.log('WebSocket is not connected, attempting reconnection.');
                 reconnectIfNeeded();
             }
         }, 600000);
-    }
 
     function stopPing() {
         if (pingInterval) {
