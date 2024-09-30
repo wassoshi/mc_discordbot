@@ -327,7 +327,7 @@ function runSalesBot() {
 
             const payload = {
                 username: 'mooncatbot',
-                avatar_url: 'https://imgur.com/a/yl6FFKT',
+                avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
                 embeds: [{
                     title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
@@ -381,7 +381,7 @@ function runSalesBot() {
 
             const payload = {
                 username: 'mooncatbot (w)',
-                avatar_url: 'https://imgur.com/a/yl6FFKT',
+                avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
                 embeds: [{
                     title: 'Adopted',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
@@ -900,7 +900,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'mooncatbot',
-                avatar_url: 'https://imgur.com/a/yl6FFKT',
+                avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
                 embeds: [{
                     title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${tokenId}`,
@@ -955,7 +955,7 @@ function runListingBot() {
 
             const payload = {
                 username: 'mooncatbot (w)',
-                avatar_url: 'https://imgur.com/a/yl6FFKT',
+                avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
                 embeds: [{
                     title: 'Listed',
                     url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
