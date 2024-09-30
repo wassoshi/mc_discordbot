@@ -357,7 +357,7 @@ function runSalesBot() {
             if (!response.ok) {
                 throw new Error(`Error sending to Discord: ${response.statusText}`);
             }
-            console.log(`Successfully sent MoonCat #${tokenId} announcement to Discord.`);
+            console.log(`successfully sent MoonCat #${tokenId} announcement to Discord.`);
         } catch (error) {
             console.error('Error sending sale announcement to Discord:', error);
             await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
