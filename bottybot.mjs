@@ -345,7 +345,7 @@ function runSalesBot() {
             const webhooks = [process.env.SALES_DISCORD_WEBHOOK_URL, process.env.SALES_DISCORD_WEBHOOK_URL2];
 
     
-            for (const webhookUrl of webhookUrls) {
+            for (const webhookUrl of webhooks) {
                 try {
                     const response = await fetch(webhookUrl, {
                         method: 'POST',
