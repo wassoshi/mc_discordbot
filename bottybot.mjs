@@ -341,6 +341,9 @@ function runSalesBot() {
                     }
                 }]
             };
+
+            const webhooks = [process.env.SALES_DISCORD_WEBHOOK_URL, process.env.SALES_DISCORD_WEBHOOK_URL2];
+
     
             for (const webhookUrl of webhookUrls) {
                 try {
@@ -403,27 +406,36 @@ function runSalesBot() {
                 }]
             };
 
-            const response = await fetch(DISCORD_WEBHOOK_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            const responseText = await response.text();
-            console.log(`Discord response status: ${response.status}`);
-            console.log(`Discord response text: ${responseText}`);
+            const webhooks = [process.env.SALES_DISCORD_WEBHOOK_URL, process.env.SALES_DISCORD_WEBHOOK_URL2];
 
-            if (!response.ok) {
-                throw new Error(`Error sending to Discord: ${response.statusText}`);
+            for (const webhookUrl of webhooks) {
+                try {
+                    const response = await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const responseText = await response.text();
+                    console.log(`Discord response status for ${webhookUrl}: ${response.status}`);
+                    console.log(`Discord response text: ${responseText}`);
+
+                    if (!response.ok) {
+                        throw new Error(`Error sending to Discord: ${response.statusText}`);
+                    }
+                    console.log(`Successfully sent Old Wrapper MoonCat #${tokenId} sale announcement to Discord webhook: ${webhookUrl}`);
+                } catch (error) {
+                    console.error(`Error sending sale announcement to Discord webhook: ${webhookUrl}`, error);
+                    await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
+                    throw error;
+                }
             }
-            console.log(`Successfully sent Old Wrapper MoonCat #${tokenId} sale announcement to Discord.`);
         } catch (error) {
-            console.error('Error sending sale announcement to Discord (Old Wrapper):', error);
-            await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
-            throw error;
+            console.error('Error preparing to send Discord notification (Old Wrapper):', error);
         }
     }
+
 
     async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
         console.log(`Announcing MoonCat sale for tokenId: ${tokenId}`);
