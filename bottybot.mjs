@@ -371,7 +371,6 @@ function runSalesBot() {
                     await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
                     throw error;
                 }
-            }
 
     async function sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
         console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
