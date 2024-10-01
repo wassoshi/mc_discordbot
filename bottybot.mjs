@@ -318,13 +318,12 @@ function runSalesBot() {
             console.error('Error: Message text is empty.');
             return;
         }
-
+    
         try {
             const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
             const blurEmoji = '<:logo_blur:1202577510458728458>';
             const etherScanEmoji = '<:logo_etherscan:1202580047765180498>';
-
-
+    
             const payload = {
                 username: 'mooncatbot',
                 avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
@@ -342,8 +341,7 @@ function runSalesBot() {
                     }
                 }]
             };
-
-
+    
             for (const webhookUrl of webhookUrls) {
                 try {
                     const response = await fetch(webhookUrl, {
@@ -356,7 +354,7 @@ function runSalesBot() {
                     const responseText = await response.text();
                     console.log(`Discord response status: ${response.status}`);
                     console.log(`Discord response text: ${responseText}`);
-
+    
                     if (!response.ok) {
                         throw new Error(`Error sending to Discord: ${response.statusText}`);
                     }
@@ -367,6 +365,11 @@ function runSalesBot() {
                     throw error;
                 }
             }
+        } catch (error) {
+            console.error('Error preparing to send Discord notification:', error);
+        }
+    }
+    
 
     async function sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
         console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
