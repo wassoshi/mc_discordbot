@@ -344,11 +344,6 @@ function runSalesBot() {
             };
 
 
-            const webhookUrls = [
-                process.env.SALES_DISCORD_WEBHOOK_URL,
-                process.env.SALES_DISCORD_WEBHOOK_URL2
-            ];
-
             for (const webhookUrl of webhookUrls) {
                 try {
                     const response = await fetch(webhookUrl, {
