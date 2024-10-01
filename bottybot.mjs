@@ -343,27 +343,35 @@ function runSalesBot() {
                 }]
             };
 
-            const response = await fetch(DISCORD_WEBHOOK_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            const responseText = await response.text();
-            console.log(`Discord response status: ${response.status}`);
-            console.log(`Discord response text: ${responseText}`);
 
-            if (!response.ok) {
-                throw new Error(`Error sending to Discord: ${response.statusText}`);
+            const webhookUrls = [
+                process.env.SALES_DISCORD_WEBHOOK_URL,
+                process.env.SALES_DISCORD_WEBHOOK_URL2
+            ];
+
+            for (const webhookUrl of webhookUrls) {
+                try {
+                    const response = await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const responseText = await response.text();
+                    console.log(`Discord response status: ${response.status}`);
+                    console.log(`Discord response text: ${responseText}`);
+
+                    if (!response.ok) {
+                        throw new Error(`Error sending to Discord: ${response.statusText}`);
+                    }
+                    console.log(`successfully sent MoonCat #${tokenId} announcement to Discord.`);
+                } catch (error) {
+                    console.error('Error sending sale announcement to Discord:', error);
+                    await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
+                    throw error;
+                }
             }
-            console.log(`successfully sent MoonCat #${tokenId} announcement to Discord.`);
-        } catch (error) {
-            console.error('Error sending sale announcement to Discord:', error);
-            await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
-            throw error;
-        }
-    }
 
     async function sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
         console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
