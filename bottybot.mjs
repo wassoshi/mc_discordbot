@@ -482,8 +482,18 @@ function runSalesBot() {
             return;
         }
 
-        const formattedEthPrice = formatEthPrice(ethPrice);
-        const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
+        let formattedEthPrice;
+        try {
+            formattedEthPrice = parseFloat(ethPrice).toFixed(3); // Ensure it is parsed as a number
+            if (isNaN(formattedEthPrice)) {
+                throw new Error("Invalid ethPrice");
+            }
+        } catch (error) {
+            console.error(`Error parsing ethPrice for tokenId ${tokenId}:`, error);
+            formattedEthPrice = "N/A"; // Fallback in case of error
+        }
+
+        const usdPrice = formattedEthPrice !== "N/A" ? (ethPrice * ethToUsdRate).toFixed(2) : "N/A";
 
         const { imageUrl, name, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
