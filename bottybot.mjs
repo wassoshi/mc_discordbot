@@ -475,7 +475,7 @@ function runSalesBot() {
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
-    async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
+    async function announceOldWrapperSale(realTokenIdHex, tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
         console.log(`Announcing Old Wrapper sale for tokenId: ${tokenId}`);
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
@@ -484,7 +484,7 @@ function runSalesBot() {
 
         let formattedEthPrice;
         try {
-            formattedEthPrice = parseFloat(ethPrice).toFixed(3);
+            formattedEthPrice = parseFloat(ethPrice).toFixed(3); // Ensure it is parsed as a number
             if (isNaN(formattedEthPrice)) {
                 throw new Error("Invalid ethPrice");
             }
@@ -495,7 +495,7 @@ function runSalesBot() {
 
         const usdPrice = formattedEthPrice !== "N/A" ? (ethPrice * ethToUsdRate).toFixed(2) : "N/A";
 
-        const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        const { imageUrl, name, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
         console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
         if (!imageUrl) {
             return;
