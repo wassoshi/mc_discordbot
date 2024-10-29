@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import sharp from 'sharp';
 import { AlchemyProvider, AlchemyWebSocketProvider } from '@ethersproject/providers';
-import { Contract } from 'ethers';
+import { ethers, Contract } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -165,6 +165,17 @@ function runSalesBot() {
             ],
             "name": "Transfer",
             "type": "event"
+        },
+        {
+            "inputs": [
+                { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
+            ],
+            "name": "_tokenIDToCatID",
+            "outputs": [
+                { "internalType": "bytes5", "name": "", "type": "bytes5" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
         }
     ];
 
