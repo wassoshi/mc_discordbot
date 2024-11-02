@@ -1292,7 +1292,7 @@ async function runNameBot() {
         console.log(`Sending naming event for catId: ${catId}, name: ${name} to Discord`);
         const payload = {
             username: 'mooncatbot',
-            avatar_url: 'https://assets.coingecko.com/coins/images/36766/large/mooncats.png?1712283962',
+            avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
             embeds: [{
                 title: 'Named',
                 url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
