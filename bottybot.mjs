@@ -137,6 +137,13 @@ function runSalesBot() {
     const COINMARKETCAP_API_KEY = process.env.SALES_COINMARKETCAP_API_KEY;
     const DISCORD_WEBHOOK_URL = process.env.SALES_DISCORD_WEBHOOK_URL;
 
+    const VAULT_ADDRESSES = [
+        '0x67bdcd02705cecf08cb296394db7d6ed00a496f9',
+        '0xa8b42c82a628dc43c2c2285205313e5106ea2853',
+        '0x98968f0747e0a261532cacc0be296375f5c08398',
+        '0xd4fe01ce79c84c68f9307d415b8f392d140c242c'
+    ];
+
     const ethersProvider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
 
     const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
@@ -448,7 +455,7 @@ function runSalesBot() {
     }
 
 
-    async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
+    async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress, sellerAddress) {
         console.log(`Announcing MoonCat sale for tokenId: ${tokenId}`);
         const ethToUsdRate = await getEthToUsdConversionRate();
         if (!ethToUsdRate) {
@@ -481,8 +488,17 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        const sellerIsVault = VAULT_ADDRESSES.includes(sellerAddress.toLowerCase());
+        const buyerIsVault  = VAULT_ADDRESSES.includes(buyerAddress.toLowerCase());
 
+        let messageText;
+        if (sellerIsVault) {
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        } else if (buyerIsVault) {
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        } else {
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        }
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
 
@@ -631,8 +647,9 @@ function runSalesBot() {
                             saleData.transactionUrl,
                             saleData.payment,
                             saleData.protocolAddress,
-                            saleData.toAddress
-                        );
+                            saleData.toAddress,
+                            saleData.fromAddress
+                        );                        
                     } else {
                         console.error(`Unrecognized contract address: ${contractAddress}`);
                     }
