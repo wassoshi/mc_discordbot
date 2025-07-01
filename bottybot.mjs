@@ -1305,15 +1305,26 @@ async function runNameBot() {
         }
     }
 
-    async function sendNameToDiscord(catId, name, imageUrl, rescueIndex) {
+    async function sendNameToDiscord(catId, name, imageUrl, rescueIndex, transactionHash) {
         console.log(`Sending naming event for catId: ${catId}, name: ${name} to Discord`);
+
+        const etherScanEmoji = '<:logo_etherscan:1202580047765180498>';
+        const txUrl          = `https://etherscan.io/tx/${transactionHash}`;
         const payload = {
             username: 'mooncatbot',
             avatar_url: 'https://i.imgur.com/ufCAV5t.gif',
             embeds: [{
                 title: 'Named',
                 url: `https://chainstation.mooncatrescue.com/mooncats/${rescueIndex}`,
-                description: `MoonCat #${rescueIndex}: ${catId} has been named ${name}!`,
+                description: `MoonCat #${rescueIndex}: ${catId} has been named ${name}.`,
+                fields: [
+                    {
+
+                        name: 'Block Explorer',
+                        value: `${etherScanEmoji} [Etherscan](${txUrl})`,
+                        inline: true
+                    }
+                ],
                 color: 3447003,
                 image: {
                     url: imageUrl
@@ -1350,7 +1361,7 @@ async function runNameBot() {
             const rescueIndex = await getRescueIndex(formattedCatId);
 
             if (rescueIndex) {
-                await sendNameToDiscord(formattedCatId, web3.utils.hexToUtf8(catName), imageUrl, rescueIndex);
+                await sendNameToDiscord(formattedCatId, web3.utils.hexToUtf8(catName), imageUrl, rescueIndex, event.transactionHash);
             }
         } catch (error) {
             console.error('Error handling CatNamed event:', error);
