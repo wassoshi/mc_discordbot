@@ -310,7 +310,10 @@ function runSalesBot() {
     }
 
     function formatEthPrice(ethPrice) {
-        return parseFloat(ethPrice.toFixed(3));
+        return Number(ethPrice).toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
     }
 
     async function fetchEnsName(address) {
@@ -463,7 +466,11 @@ function runSalesBot() {
         }
 
         const formattedEthPrice = formatEthPrice(ethPrice);
-        const usdPrice = (ethPrice * ethToUsdRate).toFixed(2);
+        const usdPrice = (ethPrice * ethToUsdRate).toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
+
         const moonCatData = await getMoonCatNameOrId(tokenId);
         if (!moonCatData) {
             return;
@@ -511,7 +518,11 @@ function runSalesBot() {
 
         let formattedEthPrice;
         try {
-            formattedEthPrice = parseFloat(ethPrice).toFixed(3);
+            formattedEthPrice = Number(ethPrice).toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            });
+
             if (isNaN(formattedEthPrice)) {
                 throw new Error("Invalid ethPrice");
             }
@@ -913,7 +924,10 @@ function runListingBot() {
     }
 
     function formatEthPrice(ethPrice) {
-        return parseFloat(ethPrice.toFixed(3));
+        return Number(ethPrice).toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
     }
 
     function isBlacklisted(sellerAddress, tokenId) {
