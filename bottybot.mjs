@@ -3,7 +3,6 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import sharp from 'sharp';
 import { AlchemyProvider, AlchemyWebSocketProvider } from '@ethersproject/providers';
 import { ethers, Contract } from 'ethers';
 
@@ -305,7 +304,7 @@ function runSalesBot() {
         } catch (error) {
             console.error(`Error fetching MoonCat name or ID for token ${tokenIdHex}:`, error);
             const fallbackId = `0x${tokenIdHex.toLowerCase().padStart(64, '0')}`;
-            return fallbackId;
+            return { details: { name: null, catId: fallbackId } };
         }
     }
 
@@ -385,7 +384,10 @@ function runSalesBot() {
                 }]
             };
 
-            const webhooks = [process.env.SALES_DISCORD_WEBHOOK_URL, process.env.SALES_DISCORD_WEBHOOK_URL2];
+            const webhooks = [
+              process.env.SALES_DISCORD_WEBHOOK_URL,
+              process.env.SALES_DISCORD_WEBHOOK_URL2
+            ].filter(Boolean);
 
     
             for (const webhookUrl of webhooks) {
