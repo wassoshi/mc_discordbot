@@ -312,21 +312,21 @@ function runSalesBot() {
         console.log(`Classifying MoonCat for tokenId: ${tokenId}`);
         
         if (tokenId < 492) {
-            return 'Day1';
+            return 'Day1-rescued';
         } else if (tokenId < 904) {
-            return 'Day2';
+            return 'Day2-rescued';
         } else if (tokenId < 1569) {
-            return 'Week1';
+            return 'Week1-rescued';
         } else if (tokenId < 3365) {
-            return '2017';
+            return '2017-rescued';
         } else if (tokenId < 5684) {
-            return '2018';
+            return '2018-rescued';
         } else if (tokenId < 5755) {
-            return '2019';
+            return '2019-rescued';
         } else if (tokenId < 5758) {
-            return '2020';
+            return '2020-rescued';
         } else {
-            return '2021';
+            return '2021-rescued';
         }
     }
 
