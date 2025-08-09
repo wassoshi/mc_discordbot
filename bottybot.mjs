@@ -3,7 +3,6 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import sharp from 'sharp';
 import { AlchemyProvider, AlchemyWebSocketProvider } from '@ethersproject/providers';
 import { ethers, Contract } from 'ethers';
 
@@ -57,9 +56,9 @@ function createWeb3Provider() {
             reconnectIfNeeded();
         });
         setInterval(() => {
-            const healthStatus = wsProvider.readyState === WebSocket.OPEN ? 'open' : 'closed';
-            console.log(`WebSocket health check: Connection is ${healthStatus}`);
-            if (healthStatus === 'closed') {
+            const isOpen = wsProvider && wsProvider.connected;
+            console.log(`WebSocket health check: Connection is ${isOpen ? 'open' : 'closed'}`);
+            if (!isOpen) {
                 reconnectIfNeeded();
             }
         }, 600000);
@@ -101,7 +100,7 @@ function createWeb3Provider() {
     function startPing() {
         stopPing();
         pingInterval = setInterval(() => {
-            if (wsProvider.connected) {
+            if (wsProvider && wsProvider.connected) {
                 console.log('Sending ping to keep WebSocket alive...');
                 wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', (err) => {
                     if (err) {
@@ -305,7 +304,7 @@ function runSalesBot() {
         } catch (error) {
             console.error(`Error fetching MoonCat name or ID for token ${tokenIdHex}:`, error);
             const fallbackId = `0x${tokenIdHex.toLowerCase().padStart(64, '0')}`;
-            return fallbackId;
+            return { details: { name: null, catId: fallbackId } };
         }
     }
 
@@ -313,21 +312,21 @@ function runSalesBot() {
         console.log(`Classifying MoonCat for tokenId: ${tokenId}`);
         
         if (tokenId < 492) {
-            return 'Day1';
+            return 'Day 1 Rescue, 2017 Rescue';
         } else if (tokenId < 904) {
-            return 'Day2';
+            return 'Day 2 Rescue, 2017 Rescue';
         } else if (tokenId < 1569) {
-            return 'Week1';
+            return 'Week 1 Rescue, 2017 Rescue';
         } else if (tokenId < 3365) {
-            return '2017';
+            return '2017 Rescue';
         } else if (tokenId < 5684) {
-            return '2018';
+            return '2018 Rescue';
         } else if (tokenId < 5755) {
-            return '2019';
+            return '2019 Rescue';
         } else if (tokenId < 5758) {
-            return '2020';
+            return '2020 Rescue';
         } else {
-            return '2021';
+            return '2021 Rescue';
         }
     }
 
@@ -385,7 +384,10 @@ function runSalesBot() {
                 }]
             };
 
-            const webhooks = [process.env.SALES_DISCORD_WEBHOOK_URL, process.env.SALES_DISCORD_WEBHOOK_URL2];
+            const webhooks = [
+              process.env.SALES_DISCORD_WEBHOOK_URL,
+              process.env.SALES_DISCORD_WEBHOOK_URL2
+            ].filter(Boolean);
 
     
             for (const webhookUrl of webhooks) {
@@ -524,11 +526,11 @@ function runSalesBot() {
 
         let messageText;
         if (sellerIsVault) {
-            messageText = `${classification} MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
         } else if (buyerIsVault) {
-            messageText = `${classification} MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
         } else {
-            messageText = `${classification} MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
         }
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
