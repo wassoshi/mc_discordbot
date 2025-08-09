@@ -57,9 +57,9 @@ function createWeb3Provider() {
             reconnectIfNeeded();
         });
         setInterval(() => {
-            const healthStatus = wsProvider.readyState === WebSocket.OPEN ? 'open' : 'closed';
-            console.log(`WebSocket health check: Connection is ${healthStatus}`);
-            if (healthStatus === 'closed') {
+            const isOpen = wsProvider && wsProvider.connected;
+            console.log(`WebSocket health check: Connection is ${isOpen ? 'open' : 'closed'}`);
+            if (!isOpen) {
                 reconnectIfNeeded();
             }
         }, 600000);
@@ -101,7 +101,7 @@ function createWeb3Provider() {
     function startPing() {
         stopPing();
         pingInterval = setInterval(() => {
-            if (wsProvider.connected) {
+            if (wsProvider && wsProvider.connected) {
                 console.log('Sending ping to keep WebSocket alive...');
                 wsProvider.send('{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}', (err) => {
                     if (err) {
