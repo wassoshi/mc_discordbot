@@ -312,21 +312,21 @@ function runSalesBot() {
         console.log(`Classifying MoonCat for tokenId: ${tokenId}`);
         
         if (tokenId < 492) {
-            return 'Day1-rescued';
+            return 'Day 1 Rescue, 2017 Rescue';
         } else if (tokenId < 904) {
-            return 'Day2-rescued';
+            return 'Day 2 Rescue, 2017 Rescue';
         } else if (tokenId < 1569) {
-            return 'Week1-rescued';
+            return 'Week 1 Rescue, 2017 Rescue';
         } else if (tokenId < 3365) {
-            return '2017-rescued';
+            return '2017 Rescue';
         } else if (tokenId < 5684) {
-            return '2018-rescued';
+            return '2018 Rescue';
         } else if (tokenId < 5755) {
-            return '2019-rescued';
+            return '2019 Rescue';
         } else if (tokenId < 5758) {
-            return '2020-rescued';
+            return '2020 Rescue';
         } else {
-            return '2021-rescued';
+            return '2021 Rescue';
         }
     }
 
@@ -526,11 +526,11 @@ function runSalesBot() {
 
         let messageText;
         if (sellerIsVault) {
-            messageText = `${classification} MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
         } else if (buyerIsVault) {
-            messageText = `${classification} MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
         } else {
-            messageText = `${classification} MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
         }
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
