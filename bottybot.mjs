@@ -308,22 +308,22 @@ function runSalesBot() {
         }
     }
 
-    async function classifyMoonCat(tokenId) {
-        console.log(`Classifying MoonCat for tokenId: ${tokenId}`);
+    async function classifyMoonCat(rescueIndex) {
+        console.log(`Classifying MoonCat for rescueIndex: ${rescueIndex}`);
         
-        if (tokenId < 492) {
+        if (rescueIndex < 492) {
             return 'Day 1 Rescue, 2017 Rescue';
-        } else if (tokenId < 904) {
+        } else if (rescueIndex < 904) {
             return 'Day 2 Rescue, 2017 Rescue';
-        } else if (tokenId < 1569) {
+        } else if (rescueIndex < 1569) {
             return 'Week 1 Rescue, 2017 Rescue';
-        } else if (tokenId < 3365) {
+        } else if (rescueIndex < 3365) {
             return '2017 Rescue';
-        } else if (tokenId < 5684) {
+        } else if (rescueIndex < 5684) {
             return '2018 Rescue';
-        } else if (tokenId < 5755) {
+        } else if (rescueIndex < 5755) {
             return '2019 Rescue';
-        } else if (tokenId < 5758) {
+        } else if (rescueIndex < 5758) {
             return '2020 Rescue';
         } else {
             return '2021 Rescue';
@@ -522,15 +522,16 @@ function runSalesBot() {
         const sellerIsVault = VAULT_ADDRESSES.includes(sellerAddress.toLowerCase());
         const buyerIsVault  = VAULT_ADDRESSES.includes(buyerAddress.toLowerCase());
 
-        const classification = await classifyMoonCat(tokenId);
+        const rescueIndex = tokenId;
+        const classification = await classifyMoonCat(rescueIndex);
 
         let messageText;
         if (sellerIsVault) {
-            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
         } else if (buyerIsVault) {
-            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
         } else {
-            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n${classification}`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
         }
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -580,7 +581,9 @@ function runSalesBot() {
         const shortBuyerAddress = buyerAddress.substring(0, 6);
         const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-        let messageText = `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})`;
+        const classification = await classifyMoonCat(rescueIndex);
+
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
 
         await sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
