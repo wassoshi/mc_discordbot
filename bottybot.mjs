@@ -864,6 +864,28 @@ function runListingBot() {
         return ensName || address;
     }
 
+    async function classifyMoonCat(rescueIndex) {
+        console.log(`Classifying MoonCat for rescueIndex: ${rescueIndex}`);
+        
+        if (rescueIndex < 492) {
+            return 'Day 1 Rescue, 2017 Rescue';
+        } else if (rescueIndex < 904) {
+            return 'Day 2 Rescue, 2017 Rescue';
+        } else if (rescueIndex < 1569) {
+            return 'Week 1 Rescue, 2017 Rescue';
+        } else if (rescueIndex < 3365) {
+            return '2017 Rescue';
+        } else if (rescueIndex < 5684) {
+            return '2018 Rescue';
+        } else if (rescueIndex < 5755) {
+            return '2019 Rescue';
+        } else if (rescueIndex < 5758) {
+            return '2020 Rescue';
+        } else {
+            return '2021 Rescue';
+        }
+    }
+
     async function getMoonCatImageURL(tokenId) {
         console.log(`Fetching MoonCat image URL for tokenId: ${tokenId}`);
         try {
