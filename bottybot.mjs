@@ -527,11 +527,11 @@ function runSalesBot() {
 
         let messageText;
         if (sellerIsVault) {
-            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} adopted from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n\[ ${classification} \]`;
         } else if (buyerIsVault) {
-            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} placed in the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n\[ ${classification} \]`;
         } else {
-            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
+            messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n\[ ${classification} \]`;
         }
         await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
@@ -1111,6 +1111,9 @@ function runListingBot() {
         });
         const moonCatNameOrId = listing.asset.name;
 
+        const rescueIndex = tokenId;
+        const classification = await classifyMoonCat(rescueIndex);
+
         const imageUrl = await getMoonCatImageURL(tokenId);
 
         const marketplaceName = listing.protocol_address ? "OpenSea" : "Blur";
@@ -1118,7 +1121,7 @@ function runListingBot() {
             ? `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`
             : listing.asset.opensea_url;
 
-        const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)\n\n\[ ${classification} \]`;
 
         await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
@@ -1159,7 +1162,9 @@ function runListingBot() {
     
         const displayCatId = isNamed ? name : `0x${realTokenIdHex}`;
 
-        const messageText = `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)`;
+        const classification = await classifyMoonCat(rescueIndex);
+
+        const messageText = `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)\n\n\[ ${classification} \]`;
 
         await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
 
