@@ -583,7 +583,7 @@ function runSalesBot() {
 
         const classification = await classifyMoonCat(rescueIndex);
 
-        let messageText = `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n${classification}`;
+        let messageText = `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n\[ ${classification} \]`;
 
         await sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
     }
