@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
-const isBlacklistedName = (s) => typeof s === 'string' && /b[^a-zA-Z0-9]*o[^a-zA-Z0-9]*n[^a-zA-Z0-9]*n[^a-zA-Z0-9]*a/i.test(s);
+const isBlacklistedName = (s) => typeof s === 'string' && /b[^a-zA-Z0-9]*(?:o|0)[^a-zA-Z0-9]*n[^a-zA-Z0-9]*n[^a-zA-Z0-9]*(?:a|4|@)/i.test(s);
 
 
 
