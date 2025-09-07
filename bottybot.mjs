@@ -11,6 +11,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+const isBlacklistedName = (s) => typeof s === 'string' && s.toLowerCase().includes('bonna');
+
 
 function createWeb3Provider() {
     const maxRetries = 10;
@@ -501,6 +503,11 @@ function runSalesBot() {
         }
 
         const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
+        if (isBlacklistedName(moonCatNameOrId)) {
+            console.log(`Blacklisted name detected ("${moonCatNameOrId}"); skipping sale announcement.`);
+            return;
+        }
+
         const imageUrl = await getMoonCatImageURL(tokenId);
         if (!imageUrl) {
             return;
@@ -561,6 +568,11 @@ function runSalesBot() {
         const usdPrice = formattedEthPrice !== "N/A" ? (ethPrice * ethToUsdRate).toFixed(2) : "N/A";
 
         const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        if (isNamed && isBlacklistedName(name)) {
+            console.log(`Blacklisted name detected ("${name}"); skipping old-wrapper sale announcement.`);
+            return;
+        }
+
         console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
         if (!imageUrl) {
             return;
@@ -1115,6 +1127,11 @@ function runListingBot() {
         const sellerAddress = listing.maker;
         const tokenId = listing.asset.identifier;
 
+        if (isBlacklistedName(listing.asset?.name)) {
+            console.log(`Blacklisted name detected ("${listing.asset?.name}"); skipping listing announcement.`);
+            return;
+        }
+
         if (isBlacklisted(sellerAddress, tokenId)) {
             console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted. Skipping announcement.`);
             return;
@@ -1172,6 +1189,11 @@ function runListingBot() {
         });
 
         const { imageUrl, name, realTokenIdHex, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
+        if (isNamed && isBlacklistedName(name)) {
+            console.log(`Blacklisted name detected ("${name}"); skipping old-wrapper listing announcement.`);
+            return;
+        }
+
         console.log(`announceOldWrapperSale: Received rescueIndex: ${rescueIndex}`);
 
         let marketplaceName = "OpenSea";
@@ -1435,11 +1457,16 @@ async function runNameBot() {
         const { catId, catName } = event.returnValues;
         try {
             const formattedCatId = formatCatId(catId);
+            const decodedName = web3.utils.hexToUtf8(catName);
+            if (isBlacklistedName(decodedName)) {
+                console.log(`Blacklisted name detected ("${decodedName}"); skipping naming announcement.`);
+                return;
+            }   
             const imageUrl = await getMoonCatImageURL(formattedCatId);
             const rescueIndex = await getRescueIndex(formattedCatId);
 
             if (rescueIndex) {
-                await sendNameToDiscord(formattedCatId, web3.utils.hexToUtf8(catName), imageUrl, rescueIndex, event.transactionHash);
+                await sendNameToDiscord(formattedCatId, decodedName, imageUrl, rescueIndex, event.transactionHash);
             }
         } catch (error) {
             console.error('Error handling CatNamed event:', error);
