@@ -11,7 +11,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
-const isBlacklistedName = (s) => typeof s === 'string' && s.toLowerCase().includes('bonna');
+const isBlacklistedName = (s) => typeof s === 'string' && /b[^a-zA-Z0-9]*o[^a-zA-Z0-9]*n[^a-zA-Z0-9]*n[^a-zA-Z0-9]*a/i.test(s);
+
 
 
 function createWeb3Provider() {
