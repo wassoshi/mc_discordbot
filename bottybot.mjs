@@ -1219,8 +1219,8 @@ function runListingBot() {
     async function fetchListingsFromOpenSea(initialRun = false) {
         console.log('Fetching listings from OpenSea...');
         try {
-            const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=order&order_type=listing&limit=50`;
-            const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=order&order_type=listing&limit=50`;
+            const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/listings/collection/acclimatedmooncats?limit=50`;
+            const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/listings/collection/wrapped-mooncatsrescue?limit=50`;
 
             const headers = {
                 'X-API-KEY': OPENSEA_API_KEY,
