@@ -1457,9 +1457,15 @@ async function runNameBot() {
         }
         const { catId, catName } = event.returnValues;
         try {
-            const formattedCatId = formatCatId(catId);
-            const decodedName = web3.utils.hexToUtf8(catName);
-            if (isBlacklistedName(decodedName)) {
+            const rawName     = web3.utils.hexToUtf8(catName);
+            const decodedName = rawName.replace(/\u0000/g, '').trim();
+            const lowerName   = decodedName.toLowerCase();
+            
+            if (
+                isBlacklistedName(decodedName) ||
+                lowerName.includes('bonna') ||
+                lowerName.includes('discord')
+            ) {
                 console.log(`Blacklisted name detected ("${decodedName}"); skipping naming announcement.`);
                 return;
             }   
