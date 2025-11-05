@@ -1239,14 +1239,19 @@ function runListingBot() {
             let listings = [];
 
             if (initialRun) {
+                const ONE_HOUR_MS = 3600000;
 
-                const moonCatsListings = dataMoonCats.asset_events
-                    .filter(event => event.order_type === 'listing' && !event.taker)
-                    .slice(0, 20);
+                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                    const eventTime = event.event_timestamp * 1000;
+                    const isListing = event.order_type === 'listing' && !event.taker;
+                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+                }).slice(0, 20);
 
-                const oldWrapperListings = dataOldWrapper.asset_events
-                    .filter(event => event.order_type === 'listing' && !event.taker)
-                    .slice(0, 20);
+                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                    const eventTime = event.event_timestamp * 1000;
+                    const isListing = event.order_type === 'listing' && !event.taker;
+                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+                }).slice(0, 20);
 
                 listings = [...moonCatsListings, ...oldWrapperListings];
 
