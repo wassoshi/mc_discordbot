@@ -1266,12 +1266,25 @@ function runListingBot() {
                 listings = [...moonCatsListings, ...oldWrapperListings];
 
                 if (listings.length > 0) {
-                    lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
-                } else {
                     lastProcessedTimestamp = Math.max(
-                        Math.max(...dataMoonCats.asset_events.map(event => event.event_timestamp)),
-                        Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
+                        ...listings
+                            .map(event => event.event_timestamp)
+                            .filter(ts => typeof ts === 'number')
                     );
+                } else {
+                    const moonTs = moonEvents
+                        .map(e => e.event_timestamp)
+                        .filter(ts => typeof ts === 'number');
+                    const oldTs = oldEvents
+                        .map(e => e.event_timestamp)
+                        .filter(ts => typeof ts === 'number');
+                    const allTs = [...moonTs, ...oldTs];
+
+                    if (allTs.length > 0) {
+                        lastProcessedTimestamp = Math.max(...allTs);
+                    } else {
+                        lastProcessedTimestamp = Math.floor(currentTime / 1000);
+                    }
                 }
             } else {
                 const moonCatsListings = moonEvents.filter(event => {
@@ -1289,7 +1302,11 @@ function runListingBot() {
                 listings = [...moonCatsListings, ...oldWrapperListings];
 
                 if (listings.length > 0) {
-                    lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
+                    lastProcessedTimestamp = Math.max(
+                        ...listings
+                            .map(event => event.event_timestamp)
+                            .filter(ts => typeof ts === 'number')
+                    );
                 }
             }
 
@@ -1469,6 +1486,7 @@ async function runNameBot() {
         }
         const { catId, catName } = event.returnValues;
         try {
+            const formattedCatId = formatCatId(catId);
             const rawName     = web3.utils.hexToUtf8(catName);
             const decodedName = rawName.replace(/\u0000/g, '').trim();
             const lowerName   = decodedName.toLowerCase();
