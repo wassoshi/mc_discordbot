@@ -1216,7 +1216,7 @@ function runListingBot() {
         updateBlacklist(sellerAddress, tokenId);
     }
 
-    async function fetchListingsFromOpenSea() {
+    async function fetchListingsFromOpenSea(initialRun = false) {
         console.log('Fetching listings from OpenSea...');
         try {
             const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=order&order_type=listing&limit=50`;
@@ -1234,35 +1234,61 @@ function runListingBot() {
 
             const dataMoonCats = await responseMoonCats.json();
             const dataOldWrapper = await responseOldWrapper.json();
-            const moonEvents = Array.isArray(dataMoonCats.asset_events)
-                ? dataMoonCats.asset_events
-                : [];
-            const oldEvents  = Array.isArray(dataOldWrapper.asset_events)
-                ? dataOldWrapper.asset_events
-                : [];
-            const allListings = [...moonEvents, ...oldEvents].filter(event => {
-                if (!event || !event.event_type || !event.order_type) return false;
-                const isOrderEvent = event.event_type === 'order';
-                const isListing = event.order_type === 'listing';
-                const isAvailable = !event.taker;
-                return isOrderEvent && isListing && isAvailable;
-            });
-            const newListings = allListings.filter(
-                e => !PROCESSED_LISTINGS.has(e.order_hash)
-            );
 
-            console.log(
-                `Fetched listings from OpenSea. Total: ${allListings.length}, new: ${newListings.length}`
-            );
+            const currentTime = Date.now();
+            let listings = [];
 
-            return newListings;
+            if (initialRun) {
+                const ONE_HOUR_MS = 3600000;
+
+                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                    const eventTime = event.event_timestamp * 1000;
+                    const isListing = event.order_type === 'listing' && !event.taker;
+                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+                }).slice(0, 20);
+
+                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                    const eventTime = event.event_timestamp * 1000;
+                    const isListing = event.order_type === 'listing' && !event.taker;
+                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+                }).slice(0, 20);
+
+                listings = [...moonCatsListings, ...oldWrapperListings];
+
+                if (listings.length > 0) {
+                    lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
+                } else {
+                    lastProcessedTimestamp = Math.max(
+                        Math.max(...dataMoonCats.asset_events.map(event => event.event_timestamp)),
+                        Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
+                    );
+                }
+            } else {
+                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                    const isListing = event.order_type === 'listing' && !event.taker;
+                    return event.event_timestamp > lastProcessedTimestamp && isListing;
+                });
+
+                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                    const isListing = event.order_type === 'listing' && !event.taker;
+                    return event.event_timestamp > lastProcessedTimestamp && isListing;
+                });
+
+                listings = [...moonCatsListings, ...oldWrapperListings];
+
+                if (listings.length > 0) {
+                    lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
+                }
+            }
+
+            console.log('Fetched listings from OpenSea.');
+            return listings;
         } catch (error) {
             console.error('Error fetching listings from OpenSea:', error);
             return null;
-         }
+        }
     }
 
-            
     async function processListingsQueue() {
         console.log('Processing listings queue...');
         LISTINGS_QUEUE.sort((a, b) => a.event_timestamp - b.event_timestamp);
@@ -1301,13 +1327,14 @@ function runListingBot() {
 
     async function monitorListings() {
         console.log('Monitoring listings...');
-
-        const initialListings = await fetchListingsFromOpenSea();
-        if (initialListings && initialListings.length > 0) {
-            LISTINGS_QUEUE.push(...initialListings);
-            console.log(`Initial run: queued ${initialListings.length} listings`);
-            if (LISTINGS_QUEUE.length === initialListings.length) {
-                processListingsQueue();
+        if (firstRun) {
+            const listings = await fetchListingsFromOpenSea(true);
+            firstRun = false;
+            if (listings && listings.length > 0) {
+                LISTINGS_QUEUE.push(...listings);
+                if (LISTINGS_QUEUE.length === listings.length) {
+                    processListingsQueue();
+                }
             }
         }
 
@@ -1315,13 +1342,13 @@ function runListingBot() {
             const listings = await fetchListingsFromOpenSea();
             if (listings && listings.length > 0) {
                 LISTINGS_QUEUE.push(...listings);
-                console.log(`New poll: queued ${listings.length} listings`);
                 if (LISTINGS_QUEUE.length === listings.length) {
                     processListingsQueue();
                 }
             }
         }, 60000);
     }
+
     monitorListings();
 }
 
@@ -1430,7 +1457,6 @@ async function runNameBot() {
         }
         const { catId, catName } = event.returnValues;
         try {
-            const formattedCatId = formatCatId(catId);
             const rawName     = web3.utils.hexToUtf8(catName);
             const decodedName = rawName.replace(/\u0000/g, '').trim();
             const lowerName   = decodedName.toLowerCase();
