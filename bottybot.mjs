@@ -1216,7 +1216,7 @@ function runListingBot() {
         updateBlacklist(sellerAddress, tokenId);
     }
 
-    async function fetchListingsFromOpenSea(initialRun = false) {
+    async function fetchListingsFromOpenSea() {
         console.log('Fetching listings from OpenSea...');
         try {
             const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=order&order_type=listing&limit=50`;
@@ -1240,84 +1240,29 @@ function runListingBot() {
             const oldEvents  = Array.isArray(dataOldWrapper.asset_events)
                 ? dataOldWrapper.asset_events
                 : [];
+            const allListings = [...moonEvents, ...oldEvents].filter(event => {
+                if (!event || !event.event_type || !event.order_type) return false;
+                const isOrderEvent = event.event_type === 'order';
+                const isListing = event.order_type === 'listing';
+                const isAvailable = !event.taker;
+                return isOrderEvent && isListing && isAvailable;
+            });
+            const newListings = allListings.filter(
+                e => !PROCESSED_LISTINGS.has(e.order_hash)
+            );
 
-            const currentTime = Date.now();
-            let listings = [];
+            console.log(
+                `Fetched listings from OpenSea. Total: ${allListings.length}, new: ${newListings.length}`
+            );
 
-            if (initialRun) {
-                const ONE_HOUR_MS = 3600000;
-
-                const moonCatsListings = moonEvents
-                    .filter(event => {
-                        if (!event || !event.event_timestamp) return false;
-                    const eventTime = event.event_timestamp * 1000;
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
-                }).slice(0, 20);
-
-                const oldWrapperListings = oldEvents
-                    .filter(event => {
-                        if (!event || !event.event_timestamp) return false;
-                    const eventTime = event.event_timestamp * 1000;
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
-                }).slice(0, 20);
-
-                listings = [...moonCatsListings, ...oldWrapperListings];
-
-                if (listings.length > 0) {
-                    lastProcessedTimestamp = Math.max(
-                        ...listings
-                            .map(event => event.event_timestamp)
-                            .filter(ts => typeof ts === 'number')
-                    );
-                } else {
-                    const moonTs = moonEvents
-                        .map(e => e.event_timestamp)
-                        .filter(ts => typeof ts === 'number');
-                    const oldTs = oldEvents
-                        .map(e => e.event_timestamp)
-                        .filter(ts => typeof ts === 'number');
-                    const allTs = [...moonTs, ...oldTs];
-
-                    if (allTs.length > 0) {
-                        lastProcessedTimestamp = Math.max(...allTs);
-                    } else {
-                        lastProcessedTimestamp = Math.floor(currentTime / 1000);
-                    }
-                }
-            } else {
-                const moonCatsListings = moonEvents.filter(event => {
-                    if (!event || !event.event_timestamp) return false;
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return event.event_timestamp > lastProcessedTimestamp && isListing;
-                });
-
-                const oldWrapperListings = oldEvents.filter(event => {
-                    if (!event || !event.event_timestamp) return false;
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return event.event_timestamp > lastProcessedTimestamp && isListing;
-                });
-
-                listings = [...moonCatsListings, ...oldWrapperListings];
-
-                if (listings.length > 0) {
-                    lastProcessedTimestamp = Math.max(
-                        ...listings
-                            .map(event => event.event_timestamp)
-                            .filter(ts => typeof ts === 'number')
-                    );
-                }
-            }
-
-            console.log('Fetched listings from OpenSea.');
-            return listings;
+            return newListings;
         } catch (error) {
             console.error('Error fetching listings from OpenSea:', error);
             return null;
-        }
+         }
     }
 
+            
     async function processListingsQueue() {
         console.log('Processing listings queue...');
         LISTINGS_QUEUE.sort((a, b) => a.event_timestamp - b.event_timestamp);
@@ -1356,14 +1301,13 @@ function runListingBot() {
 
     async function monitorListings() {
         console.log('Monitoring listings...');
-        if (firstRun) {
-            const listings = await fetchListingsFromOpenSea(true);
-            firstRun = false;
-            if (listings && listings.length > 0) {
-                LISTINGS_QUEUE.push(...listings);
-                if (LISTINGS_QUEUE.length === listings.length) {
-                    processListingsQueue();
-                }
+
+        const initialListings = await fetchListingsFromOpenSea();
+        if (initialListings && initialListings.length > 0) {
+            LISTINGS_QUEUE.push(...initialListings);
+            console.log(`Initial run: queued ${initialListings.length} listings`);
+            if (LISTINGS_QUEUE.length === initialListings.length) {
+                processListingsQueue();
             }
         }
 
@@ -1371,13 +1315,13 @@ function runListingBot() {
             const listings = await fetchListingsFromOpenSea();
             if (listings && listings.length > 0) {
                 LISTINGS_QUEUE.push(...listings);
+                console.log(`New poll: queued ${listings.length} listings`);
                 if (LISTINGS_QUEUE.length === listings.length) {
                     processListingsQueue();
                 }
             }
         }, 60000);
     }
-
     monitorListings();
 }
 
