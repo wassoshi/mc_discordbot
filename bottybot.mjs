@@ -1237,6 +1237,17 @@ function runListingBot() {
 
             const currentTime = Date.now();
             let listings = [];
+            
+            console.log("🐾 MoonCats API raw response:", JSON.stringify(dataMoonCats, null, 2));
+            console.log("📦 OldWrapper API raw response:", JSON.stringify(dataOldWrapper, null, 2));
+
+            if (!dataMoonCats.asset_events) {
+                console.error("❌ MoonCats asset_events is undefined");
+            }
+            if (!dataOldWrapper.asset_events) {
+                console.error("❌ OldWrapper asset_events is undefined");
+            }
+
 
             if (initialRun) {
                 const ONE_HOUR_MS = 3600000;
