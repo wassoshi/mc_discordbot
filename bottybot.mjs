@@ -1234,6 +1234,12 @@ function runListingBot() {
 
             const dataMoonCats = await responseMoonCats.json();
             const dataOldWrapper = await responseOldWrapper.json();
+            const moonEvents = Array.isArray(dataMoonCats.asset_events)
+                ? dataMoonCats.asset_events
+                : [];
+            const oldEvents  = Array.isArray(dataOldWrapper.asset_events)
+                ? dataOldWrapper.asset_events
+                : [];
 
             const currentTime = Date.now();
             let listings = [];
@@ -1241,13 +1247,17 @@ function runListingBot() {
             if (initialRun) {
                 const ONE_HOUR_MS = 3600000;
 
-                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                const moonCatsListings = moonEvents
+                    .filter(event => {
+                        if (!event || !event.event_timestamp) return false;
                     const eventTime = event.event_timestamp * 1000;
                     const isListing = event.order_type === 'listing' && !event.taker;
                     return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
                 }).slice(0, 20);
 
-                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                const oldWrapperListings = oldEvents
+                    .filter(event => {
+                        if (!event || !event.event_timestamp) return false;
                     const eventTime = event.event_timestamp * 1000;
                     const isListing = event.order_type === 'listing' && !event.taker;
                     return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
@@ -1264,12 +1274,14 @@ function runListingBot() {
                     );
                 }
             } else {
-                const moonCatsListings = dataMoonCats.asset_events.filter(event => {
+                const moonCatsListings = moonEvents.filter(event => {
+                    if (!event || !event.event_timestamp) return false;
                     const isListing = event.order_type === 'listing' && !event.taker;
                     return event.event_timestamp > lastProcessedTimestamp && isListing;
                 });
 
-                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                const oldWrapperListings = oldEvents.filter(event => {
+                    if (!event || !event.event_timestamp) return false;
                     const isListing = event.order_type === 'listing' && !event.taker;
                     return event.event_timestamp > lastProcessedTimestamp && isListing;
                 });
