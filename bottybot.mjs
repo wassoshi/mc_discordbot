@@ -12,7 +12,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 const isBlacklistedName = (s) => typeof s === 'string' && /b[^a-zA-Z0-9]*(?:o|0)[^a-zA-Z0-9]*n[^a-zA-Z0-9]*n[^a-zA-Z0-9]*(?:a|4|@)/i.test(s);
-
+const isBlockedFullName = (s) => {
+    if (typeof s !== 'string') return false;
+    const lower = s.toLowerCase();
+    return (
+        isBlacklistedName(s) ||      // regex match (bonna variants)
+        lower.includes('bonna') ||   // plain substring
+        lower.includes('discord')    // anything mentioning discord
+    );
+};
 
 
 function createWeb3Provider() {
@@ -504,7 +512,7 @@ function runSalesBot() {
         }
 
         const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
-        if (isBlacklistedName(moonCatNameOrId)) {
+        if (isBlockedFullName(moonCatNameOrId)) {
             console.log(`Blacklisted name detected ("${moonCatNameOrId}"); skipping sale announcement.`);
             return;
         }
@@ -569,7 +577,7 @@ function runSalesBot() {
         const usdPrice = formattedEthPrice !== "N/A" ? (ethPrice * ethToUsdRate).toFixed(2) : "N/A";
 
         const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
-        if (isNamed && isBlacklistedName(name)) {
+        if (isNamed && isBlockedFullName(name)) {
             console.log(`Blacklisted name detected ("${name}"); skipping old-wrapper sale announcement.`);
             return;
         }
@@ -1128,7 +1136,7 @@ function runListingBot() {
         const sellerAddress = listing.maker;
         const tokenId = listing.asset.identifier;
 
-        if (isBlacklistedName(listing.asset?.name)) {
+        if (isBlockedFullName(listing.asset?.name)) {
             console.log(`Blacklisted name detected ("${listing.asset?.name}"); skipping listing announcement.`);
             return;
         }
@@ -1190,7 +1198,7 @@ function runListingBot() {
         });
 
         const { imageUrl, name, realTokenIdHex, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
-        if (isNamed && isBlacklistedName(name)) {
+        if (isNamed && isBlockedFullName(name)) {
             console.log(`Blacklisted name detected ("${name}"); skipping old-wrapper listing announcement.`);
             return;
         }
@@ -1470,15 +1478,11 @@ async function runNameBot() {
         }
         const { catId, catName } = event.returnValues;
         try {
+            const formattedCatId = formatCatId(catId);
             const rawName     = web3.utils.hexToUtf8(catName);
             const decodedName = rawName.replace(/\u0000/g, '').trim();
-            const lowerName   = decodedName.toLowerCase();
             
-            if (
-                isBlacklistedName(decodedName) ||
-                lowerName.includes('bonna') ||
-                lowerName.includes('discord')
-            ) {
+            if (isBlockedFullName(decodedName)) {
                 console.log(`Blacklisted name detected ("${decodedName}"); skipping naming announcement.`);
                 return;
             }   
