@@ -698,6 +698,10 @@ function runSalesBot() {
                 if (saleData) {
 
                     if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+                        if (!ENABLE_OLD_WRAPPER) {
+                            console.log('Skipping old-wrapper sale processing (disabled).');
+                            continue;
+                        }
                         await announceOldWrapperSale(
                             saleData.tokenId,
                             saleData.ethPrice,
@@ -811,6 +815,7 @@ function runSalesBot() {
     });
 
     console.log("Sales bot started.");
+}
 }
 
 function runListingBot() {
