@@ -1236,8 +1236,11 @@ function runListingBot() {
     }
 
     async function fetchListingsFromOpenSea(initialRun = false) {
-        console.log('Fetching listings from OpenSea...');
+        const pollId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        console.log(`[LISTINGS] poll start pollId=${pollId} initialRun=${initialRun} lastProcessedTimestamp=${lastProcessedTimestamp}`);
         try {
+            const t0 = Date.now();
+
             const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=listing&limit=50`;
             //const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
 
@@ -1252,9 +1255,26 @@ function runListingBot() {
                 fetch(openseaAPIUrlMoonCats, { headers }),
                 //fetch(openseaAPIUrlOldWrapper, { headers })
             ]);
+            console.log(
+              `[LISTINGS] http pollId=${pollId} ` +
+              `mooncats=${responseMoonCats.status} wrapper=${responseOldWrapper.status} ` +
+              `ms=${Date.now() - t0}`
+            );
+
+            if (!responseMoonCats.ok) {
+              const text = await responseMoonCats.text().catch(() => '');
+              console.error(`[LISTINGS] mooncats error pollId=${pollId} body=${text.slice(0, 300)}`);
+              return null;
+            }
 
             const dataMoonCats = await responseMoonCats.json();
             //const dataOldWrapper = await responseOldWrapper.json();
+            console.log(
+              `[LISTINGS] parsed pollId=${pollId} ` +
+              `mooncats_events=${dataMoonCats?.asset_events?.length ?? 0} ` +
+              `wrapper_events=${dataOldWrapper?.asset_events?.length ?? 0}`
+            );
+
 
             const currentTime = Date.now();
             let listings = [];
