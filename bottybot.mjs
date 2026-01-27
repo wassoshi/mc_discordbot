@@ -41,9 +41,10 @@ function createWeb3Provider() {
     };
 
     function setupWebSocketProvider() {
-        if (wsProvider && wsProvider.connected) {
-            console.log("WebSocket is already connected.");
-            return wsProvider;
+        try {
+          wsProvider?.connection?.close();
+        } catch (e) {
+          console.error('Error closing websocket connection:', e);
         }
 
         wsProvider = new Web3.providers.WebsocketProvider(`wss://eth-mainnet.g.alchemy.com/v2/${process.env.SALES_ALCHEMY_PROJECT_ID}`);
