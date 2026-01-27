@@ -619,6 +619,9 @@ function runSalesBot() {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
+            const nowUnix = Math.floor(Date.now() / 1000);
+            console.log(`[sales] nowUnix=${nowUnix} (${new Date(nowUnix * 1000).toISOString()})`);
+
 
             const [moonCatResponse, oldWrapperResponse] = await Promise.all([
                 fetch(openseaAPIUrl, { headers }),
@@ -1237,6 +1240,8 @@ function runListingBot() {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
+            const nowUnix = Math.floor(Date.now() / 1000);
+            console.log(`[listings] nowUnix=${nowUnix} (${new Date(nowUnix * 1000).toISOString()})`);
 
             const [responseMoonCats, responseOldWrapper] = await Promise.all([
                 fetch(openseaAPIUrlMoonCats, { headers }),
