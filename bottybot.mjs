@@ -1280,8 +1280,7 @@ function runListingBot() {
                     lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
                 } else {
                     lastProcessedTimestamp = Math.max(
-                        Math.max(...dataMoonCats.asset_events.map(event => event.event_timestamp)),
-                        Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
+                        ...dataMoonCats.asset_events.map(event => event.event_timestamp)
                     );
                 }
             } else {
