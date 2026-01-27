@@ -1251,13 +1251,11 @@ function runListingBot() {
                 'Accept': 'application/json'
             };
 
-            const [responseMoonCats, responseOldWrapper] = await Promise.all([
-                fetch(openseaAPIUrlMoonCats, { headers }),
-                //fetch(openseaAPIUrlOldWrapper, { headers })
-            ]);
+            const responseMoonCats = await fetch(openseaAPIUrlMoonCats, { headers });
+            const responseOldWrapper = null; // wrapper disabled
             console.log(
               `[LISTINGS] http pollId=${pollId} ` +
-              `mooncats=${responseMoonCats.status} wrapper=${responseOldWrapper.status} ` +
+              `mooncats=${responseMoonCats.status} wrapper=${responseOldWrapper?.status ?? 'DISABLED'} ` +
               `ms=${Date.now() - t0}`
             );
 
@@ -1272,7 +1270,7 @@ function runListingBot() {
             console.log(
               `[LISTINGS] parsed pollId=${pollId} ` +
               `mooncats_events=${dataMoonCats?.asset_events?.length ?? 0} ` +
-              `wrapper_events=${dataOldWrapper?.asset_events?.length ?? 0}`
+              `wrapper_events=${(typeof dataOldWrapper !== 'undefined' && dataOldWrapper?.asset_events) ? dataOldWrapper.asset_events.length : 0}`
             );
 
 
