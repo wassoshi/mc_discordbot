@@ -1326,11 +1326,17 @@ function runListingBot() {
             try {
                 const listingContract = listing.asset.contract.toLowerCase();
 
+                // kill wrapper listings only
                 if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
-                    await announceOldWrapperListing(listing);
-                } else if (listingContract === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
+                    console.log(`Skipping OLD WRAPPER listing tokenId: ${listing.asset.identifier} (wrapper listings disabled)`);
+                    PROCESSED_LISTINGS.add(listing.order_hash);
+                    continue;
+                }
+
+                if (listingContract === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
                     await announceMoonCatListing(listing);
                 }
+
 
                 PROCESSED_LISTINGS.add(orderHash);
 
