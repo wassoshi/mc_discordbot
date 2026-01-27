@@ -46,7 +46,7 @@ function createWeb3Provider() {
             return wsProvider;
         }
 
-        wsProvider = new Web3.providers.WebsocketProvider(`wss://eth-mainnet.alchemyapi.io/v2/${process.env.SALES_ALCHEMY_PROJECT_ID}`);
+        wsProvider = new Web3.providers.WebsocketProvider(`wss://eth-mainnet.g.alchemy.com/v2/${process.env.SALES_ALCHEMY_PROJECT_ID}`);
 
         wsProvider.on('connect', () => {
             console.log('WebSocket connection established.');
