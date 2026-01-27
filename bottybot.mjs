@@ -619,9 +619,6 @@ function runSalesBot() {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
-            const nowUnix = Math.floor(Date.now() / 1000);
-            console.log(`[sales] nowUnix=${nowUnix} (${new Date(nowUnix * 1000).toISOString()})`);
-
 
             const [moonCatResponse, oldWrapperResponse] = await Promise.all([
                 fetch(openseaAPIUrl, { headers }),
@@ -813,8 +810,7 @@ function runSalesBot() {
 function runListingBot() {
     let cachedConversionRate = null;
     let lastFetchedTime = 0;
-    let lastProcessedTimestampMoonCats = 0;
-    let lastProcessedTimestampOldWrapper = 0;
+    let lastProcessedTimestamp = 0;
     let firstRun = true;
 
     const ALCHEMY_PROJECT_ID = process.env.LISTING_ALCHEMY_PROJECT_ID;
@@ -1240,8 +1236,6 @@ function runListingBot() {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
-            const nowUnix = Math.floor(Date.now() / 1000);
-            console.log(`[listings] nowUnix=${nowUnix} (${new Date(nowUnix * 1000).toISOString()})`);
 
             const [responseMoonCats, responseOldWrapper] = await Promise.all([
                 fetch(openseaAPIUrlMoonCats, { headers }),
@@ -1282,38 +1276,30 @@ function runListingBot() {
 
                 listings = [...moonCatsListings, ...oldWrapperListings];
 
-                if (moonCatsListings.length > 0) {
-                    lastProcessedTimestampMoonCats = Math.max(...moonCatsListings.map(e => e.event_timestamp));
-                } else if (dataMoonCats.asset_events?.length) {
-                    lastProcessedTimestampMoonCats = Math.max(...dataMoonCats.asset_events.map(e => e.event_timestamp));
+                if (listings.length > 0) {
+                    lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
+                } else {
+                    lastProcessedTimestamp = Math.max(
+                        Math.max(...dataMoonCats.asset_events.map(event => event.event_timestamp)),
+                        Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
+                    );
                 }
-
-                if (oldWrapperListings.length > 0) {
-                    lastProcessedTimestampOldWrapper = Math.max(...oldWrapperListings.map(e => e.event_timestamp));
-                } else if (dataOldWrapper.asset_events?.length) {
-                    lastProcessedTimestampOldWrapper = Math.max(...dataOldWrapper.asset_events.map(e => e.event_timestamp));
-                }
-
             } else {
                 const moonCatsListings = dataMoonCats.asset_events.filter(event => {
                     const isListing = event.order_type === 'listing' && !event.taker;
-                    return event.event_timestamp > lastProcessedTimestampMoonCats && isListing;
+                    return event.event_timestamp > lastProcessedTimestamp && isListing;
                 });
 
                 const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
                     const isListing = event.order_type === 'listing' && !event.taker;
-                    return event.event_timestamp > lastProcessedTimestampOldWrapper && isListing;
+                    return event.event_timestamp > lastProcessedTimestamp && isListing;
                 });
 
                 listings = [...moonCatsListings, ...oldWrapperListings];
 
-                if (moonCatsListings.length > 0) {
-                    lastProcessedTimestampMoonCats = Math.max(...moonCatsListings.map(e => e.event_timestamp));
+                if (listings.length > 0) {
+                    lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
                 }
-                if (oldWrapperListings.length > 0) {
-                    lastProcessedTimestampOldWrapper = Math.max(...oldWrapperListings.map(e => e.event_timestamp));
-                }
-
             }
 
             console.log('Fetched listings from OpenSea.');
