@@ -1239,7 +1239,7 @@ function runListingBot() {
         console.log('Fetching listings from OpenSea...');
         try {
             const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=listing&limit=50`;
-            const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
+            //const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
 
 
 
@@ -1250,23 +1250,23 @@ function runListingBot() {
 
             const [responseMoonCats, responseOldWrapper] = await Promise.all([
                 fetch(openseaAPIUrlMoonCats, { headers }),
-                fetch(openseaAPIUrlOldWrapper, { headers })
+                //fetch(openseaAPIUrlOldWrapper, { headers })
             ]);
 
             const dataMoonCats = await responseMoonCats.json();
-            const dataOldWrapper = await responseOldWrapper.json();
+            //const dataOldWrapper = await responseOldWrapper.json();
 
             const currentTime = Date.now();
             let listings = [];
             
             console.log("🐾 MoonCats API raw response:", JSON.stringify(dataMoonCats, null, 2));
-            console.log("📦 OldWrapper API raw response:", JSON.stringify(dataOldWrapper, null, 2));
+            //console.log("📦 OldWrapper API raw response:", JSON.stringify(dataOldWrapper, null, 2));
 
             if (!dataMoonCats.asset_events) {
                 console.error("❌ MoonCats asset_events is undefined");
-            }
-            if (!dataOldWrapper.asset_events) {
-                console.error("❌ OldWrapper asset_events is undefined");
+            //}
+            //if (!dataOldWrapper.asset_events) {
+                //console.error("❌ OldWrapper asset_events is undefined");
             }
 
 
@@ -1279,20 +1279,20 @@ function runListingBot() {
                     return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
                 }).slice(0, 20);
 
-                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
-                    const eventTime = event.event_timestamp * 1000;
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
-                }).slice(0, 20);
+                //const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                    //const eventTime = event.event_timestamp * 1000;
+                    //const isListing = event.order_type === 'listing' && !event.taker;
+                    //return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+                //}).slice(0, 20);
 
-                listings = [...moonCatsListings, ...oldWrapperListings];
+                listings = [...moonCatsListings];
 
                 if (listings.length > 0) {
                     lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
                 } else {
                     lastProcessedTimestamp = Math.max(
                         Math.max(...dataMoonCats.asset_events.map(event => event.event_timestamp)),
-                        Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
+                        //Math.max(...dataOldWrapper.asset_events.map(event => event.event_timestamp))
                     );
                 }
             } else {
@@ -1301,12 +1301,12 @@ function runListingBot() {
                     return event.event_timestamp > lastProcessedTimestamp && isListing;
                 });
 
-                const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
-                    const isListing = event.order_type === 'listing' && !event.taker;
-                    return event.event_timestamp > lastProcessedTimestamp && isListing;
-                });
+                //const oldWrapperListings = dataOldWrapper.asset_events.filter(event => {
+                    //const isListing = event.order_type === 'listing' && !event.taker;
+                    //return event.event_timestamp > lastProcessedTimestamp && isListing;
+                //});
 
-                listings = [...moonCatsListings, ...oldWrapperListings];
+                listings = [...moonCatsListings];
 
                 if (listings.length > 0) {
                     lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
