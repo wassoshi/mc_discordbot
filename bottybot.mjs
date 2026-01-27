@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+const ENABLE_OLD_WRAPPER = false;
 const isBlacklistedName = (s) => typeof s === 'string' && /b[^a-zA-Z0-9]*(?:o|0)[^a-zA-Z0-9]*n[^a-zA-Z0-9]*n[^a-zA-Z0-9]*(?:a|4|@)/i.test(s);
 const isBlockedFullName = (s) => {
     if (typeof s !== 'string') return false;
@@ -197,7 +198,10 @@ function runSalesBot() {
     ];
 
     const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
-    const oldWrapperContract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
+    const oldWrapperContract = ENABLE_OLD_WRAPPER
+      ? new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS)
+      : null;
+
     const salesQueue = [];
     const transferQueue = [];
     const TRANSFER_PROCESS_DELAY_MS = 45000;
@@ -614,21 +618,22 @@ function runSalesBot() {
         try {
             await new Promise(resolve => setTimeout(resolve, 10000));
             const openseaAPIUrl = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=sale&limit=50`;
-            const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=sale&limit=50`;
             const headers = {
                 'X-API-KEY': OPENSEA_API_KEY,
                 'Accept': 'application/json'
             };
 
-            const [moonCatResponse, oldWrapperResponse] = await Promise.all([
-                fetch(openseaAPIUrl, { headers }),
-                fetch(openseaAPIUrlOldWrapper, { headers })
-            ]);
-
+            const moonCatResponse = await fetch(openseaAPIUrl, { headers });
             const moonCatData = await moonCatResponse.json();
-            const oldWrapperData = await oldWrapperResponse.json();
 
-            const combinedData = [...moonCatData.asset_events, ...oldWrapperData.asset_events];
+            let combinedData = [...moonCatData.asset_events];
+
+            if (ENABLE_OLD_WRAPPER) {
+              const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=sale&limit=50`;
+              const oldWrapperResponse = await fetch(openseaAPIUrlOldWrapper, { headers });
+              const oldWrapperData = await oldWrapperResponse.json();
+              combinedData = [...combinedData, ...oldWrapperData.asset_events];
+            }
 
             if (!combinedData || combinedData.length === 0) {
                 console.log(`No sale events found on OpenSea for tokenId: ${tokenId}`);
@@ -786,7 +791,8 @@ function runSalesBot() {
     }).on('error', (error) => {
         console.error('Error in MoonCats transfer event listener:', error);
     });
-
+  
+  if (ENABLE_OLD_WRAPPER) {
     oldWrapperContract.events.Transfer({
         fromBlock: 'latest'
     }).on('data', (event) => {
