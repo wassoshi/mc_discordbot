@@ -1238,6 +1238,7 @@ function runListingBot() {
     async function fetchListingsFromOpenSea(initialRun = false) {
         const pollId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
         console.log(`[LISTINGS] poll start pollId=${pollId} initialRun=${initialRun} lastProcessedTimestamp=${lastProcessedTimestamp}`);
+        console.log(`[LISTINGS] heartbeat pollId=${pollId} tick=${new Date().toISOString()} lastTs=${lastProcessedTimestamp}`);
         try {
             const t0 = Date.now();
 
@@ -1267,6 +1268,9 @@ function runListingBot() {
 
             const dataMoonCats = await responseMoonCats.json();
             //const dataOldWrapper = await responseOldWrapper.json();
+            const events = dataMoonCats?.asset_events ?? [];
+            console.log(`[LISTINGS] parsed pollId=${pollId} events=${events.length} newestTs=${events[0]?.event_timestamp ?? 'na'} oldestTs=${events[events.length - 1]?.event_timestamp ?? 'na'}`);
+
             console.log(
               `[LISTINGS] parsed pollId=${pollId} ` +
               `mooncats_events=${dataMoonCats?.asset_events?.length ?? 0} ` +
@@ -1333,6 +1337,7 @@ function runListingBot() {
 
             console.log('Fetched listings from OpenSea.');
             return listings;
+            console.log(`[LISTINGS] done pollId=${pollId} new=${listings?.length ?? 0} lastTsNow=${lastProcessedTimestamp}`);
         } catch (error) {
             console.error('Error fetching listings from OpenSea:', error);
             return null;
