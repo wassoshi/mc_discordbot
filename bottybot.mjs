@@ -3,7 +3,7 @@ import express from 'express';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { AlchemyProvider, AlchemyWebSocketProvider } from '@ethersproject/providers';
+import { AlchemyProvider } from '@ethersproject/providers';
 import { ethers, Contract } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -821,7 +821,6 @@ function runListingBot() {
     const ETHERSCAN_API_KEY = process.env.LISTING_ETHERSCAN_API_KEY;
 
     const provider = new AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
-    const wsProvider = new AlchemyWebSocketProvider('homestead', ALCHEMY_PROJECT_ID);
 
     const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
     const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7c40c393dc0f283f318791d746d894ddd3693572';
