@@ -18,17 +18,9 @@ const isBlacklistedName = (s) =>
 const isBlockedFullName = (s) => {
   if (typeof s !== 'string') return false;
   const lower = s.toLowerCase();
-  return (
-    isBlacklistedName(s) ||
-    lower.includes('bonna') ||
-    lower.includes('discord')
-  );
+  return isBlacklistedName(s) || lower.includes('bonna') || lower.includes('discord');
 };
 
-/**
- * Web3 WS provider with reconnect.
- * Key fix: make it reusable for multiple Web3 instances by passing getWeb3().
- */
 function createWeb3Provider(alchemyProjectId, getWeb3, label = 'ws') {
   const maxRetries = 10;
   let retryCount = 0;
@@ -826,6 +818,12 @@ function runListingBot() {
   const BLACKLIST = {};
   const ONE_DAY_MS = 86400000;
 
+  const BASE_POLL_MS = 300000;
+  const MAX_BACKOFF_MS = 1800000;
+  const BETWEEN_REQUESTS_MS = 1200;
+
+  let nextPollMs = BASE_POLL_MS;
+  let consecutive429 = 0;
   let isProcessingListings = false;
 
   async function fetchEnsName(address) {
@@ -1145,17 +1143,17 @@ function runListingBot() {
 
     if (!res.ok) {
       console.error(`[OpenSea:${label}] HTTP ${res.status} ${res.statusText} body=${text.slice(0, 500)}`);
-      return [];
+      return { events: [], status: res.status };
     }
 
     const events = data?.asset_events || data?.events || [];
     if (!Array.isArray(events)) {
       const keys = data ? Object.keys(data).join(",") : "null";
       console.error(`[OpenSea:${label}] Unexpected JSON shape keys=${keys} body=${text.slice(0, 500)}`);
-      return [];
+      return { events: [], status: 200 };
     }
 
-    return events;
+    return { events, status: 200 };
   }
 
   async function fetchListingsFromOpenSea(initialRun = false) {
@@ -1163,7 +1161,7 @@ function runListingBot() {
     try {
       if (!OPENSEA_API_KEY) {
         console.error('[listing] LISTING_OPENSEA_API_KEY is missing. Listing bot disabled.');
-        return [];
+        return { listings: [], rateLimited: false };
       }
 
       const headers = {
@@ -1174,16 +1172,19 @@ function runListingBot() {
       const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=listing&limit=50`;
       const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
 
-      const [moonEvents, wrapEvents] = await Promise.all([
-        fetchOpenSeaEvents(openseaAPIUrlMoonCats, headers, 'acclimatedmooncats listing'),
-        fetchOpenSeaEvents(openseaAPIUrlOldWrapper, headers, 'wrapped-mooncatsrescue listing')
-      ]);
+      const moonResp = await fetchOpenSeaEvents(openseaAPIUrlMoonCats, headers, 'acclimatedmooncats listing');
+      await new Promise(resolve => setTimeout(resolve, BETWEEN_REQUESTS_MS));
+      const wrapResp = await fetchOpenSeaEvents(openseaAPIUrlOldWrapper, headers, 'wrapped-mooncatsrescue listing');
+
+      const moonEvents = moonResp.events || [];
+      const wrapEvents = wrapResp.events || [];
+
+      const rateLimited = moonResp.status === 429 || wrapResp.status === 429;
 
       const currentTime = Date.now();
       let listings = [];
 
-      const isListingEvent = (e) =>
-        (e?.event_type === 'listing' || e?.order_type === 'listing') && !e?.taker;
+      const isListingEvent = (e) => (e?.event_type === 'listing' || e?.order_type === 'listing') && !e?.taker;
 
       if (initialRun) {
         const ONE_HOUR_MS = 3600000;
@@ -1230,10 +1231,10 @@ function runListingBot() {
       }
 
       console.log(`Fetched listings from OpenSea. count=${listings.length}`);
-      return listings;
+      return { listings, rateLimited };
     } catch (error) {
       console.error('Error fetching listings from OpenSea:', error);
-      return [];
+      return { listings: [], rateLimited: false };
     }
   }
 
@@ -1242,7 +1243,7 @@ function runListingBot() {
     isProcessingListings = true;
 
     console.log('Processing listings queue...');
-    LISTINGS_QUEUE.sort((a, b) => a.event_timestamp - b.event_timestamp);
+    LISTINGS_QUEUE.sort((a, b) => (a.event_timestamp || 0) - (b.event_timestamp || 0));
 
     while (LISTINGS_QUEUE.length > 0) {
       const listing = LISTINGS_QUEUE.shift();
@@ -1287,25 +1288,36 @@ function runListingBot() {
     }
   }
 
-  async function monitorListings() {
-    console.log('Monitoring listings...');
+  async function pollListingsOnce(initial) {
+    const { listings, rateLimited } = await fetchListingsFromOpenSea(initial);
 
-    if (firstRun) {
-      const listings = await fetchListingsFromOpenSea(true);
-      firstRun = false;
-      if (listings && listings.length > 0) {
-        LISTINGS_QUEUE.push(...listings);
-        processListingsQueue();
-      }
+    if (listings && listings.length > 0) {
+      LISTINGS_QUEUE.push(...listings);
+      processListingsQueue();
     }
 
-    setInterval(async () => {
-      const listings = await fetchListingsFromOpenSea();
-      if (listings && listings.length > 0) {
-        LISTINGS_QUEUE.push(...listings);
-        processListingsQueue();
-      }
-    }, 60000);
+    if (rateLimited) {
+      consecutive429 += 1;
+      const bumped = Math.max(BASE_POLL_MS * 2, nextPollMs * 2);
+      nextPollMs = Math.min(MAX_BACKOFF_MS, bumped);
+      console.log(`OpenSea rate limited (429). backoffMs=${nextPollMs} consecutive429=${consecutive429}`);
+    } else {
+      if (consecutive429 > 0) console.log(`OpenSea recovered. Resetting poll interval to base.`);
+      consecutive429 = 0;
+      nextPollMs = BASE_POLL_MS;
+    }
+
+    setTimeout(() => pollListingsOnce(false), nextPollMs);
+  }
+
+  async function monitorListings() {
+    console.log('Monitoring listings...');
+    if (firstRun) {
+      firstRun = false;
+      await pollListingsOnce(true);
+    } else {
+      await pollListingsOnce(false);
+    }
   }
 
   monitorListings();
