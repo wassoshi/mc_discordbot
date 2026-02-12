@@ -5,6 +5,18 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import { ethers } from 'ethers';
 
+let OpenSeaStreamClient, EventType, Network, StreamWebSocket;
+try {
+  const m = await import('@opensea/stream-js');
+  OpenSeaStreamClient = m.OpenSeaStreamClient;
+  EventType = m.EventType;
+  Network = m.Network;
+} catch {}
+try {
+  const ws = await import('ws');
+  StreamWebSocket = ws.WebSocket;
+} catch {}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -826,6 +838,62 @@ function runListingBot() {
   let consecutive429 = 0;
   let isProcessingListings = false;
 
+  function normalizeStreamListingEvent(event) {
+    try {
+      const payload = event?.payload;
+      if (!payload) return null;
+
+      const item = payload.item || {};
+      const nftId = item.nft_id || item.nftId;
+      if (typeof nftId !== 'string' || nftId.length === 0) return null;
+
+      const parts = nftId.split('/').filter(Boolean);
+      if (parts.length < 3) return null;
+
+      const tokenId = parts[parts.length - 1];
+      const contract = parts[parts.length - 2];
+
+      const makerAddress = payload.maker?.address || payload.maker?.Address || payload.maker?.wallet_address || payload.maker || null;
+      const orderHash = payload.order_hash || payload.orderHash || null;
+
+      const tsStr = payload.event_timestamp || payload.eventTimestamp || payload.transaction?.timestamp || null;
+      const tsSec = tsStr ? Math.floor(new Date(tsStr).getTime() / 1000) : Math.floor(Date.now() / 1000);
+
+      const paymentToken = payload.payment_token || payload.paymentToken || {};
+      const price =
+        payload.listing_price ??
+        payload.base_price ??
+        payload.starting_price ??
+        payload.start_price ??
+        payload.price ??
+        payload.current_price ??
+        null;
+
+      return {
+        event_type: 'listing',
+        event_timestamp: tsSec,
+        order_hash: orderHash || `stream_${contract}_${tokenId}_${tsSec}`,
+        maker: makerAddress,
+        taker: null,
+        protocol_address: payload.protocol_address || payload.protocolAddress || '',
+        payment: {
+          quantity: price ?? '0',
+          decimals: paymentToken.decimals ?? 18,
+          symbol: paymentToken.symbol || 'ETH'
+        },
+        nft: {
+          identifier: tokenId,
+          contract,
+          name: item.metadata?.name || null,
+          opensea_url: item.permalink || null
+        }
+      };
+    } catch (e) {
+      console.error('Failed to normalize stream listing event:', e);
+      return null;
+    }
+  }
+
   async function fetchEnsName(address) {
     console.log(`Fetching ENS name for address: ${address}`);
     try {
@@ -1312,6 +1380,36 @@ function runListingBot() {
 
   async function monitorListings() {
     console.log('Monitoring listings...');
+    if (OpenSeaStreamClient && EventType && Network && StreamWebSocket && OPENSEA_API_KEY) {
+      try {
+        const client = new OpenSeaStreamClient({
+          network: Network.MAINNET,
+          token: OPENSEA_API_KEY,
+          connectOptions: { transport: StreamWebSocket }
+        });
+
+        const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
+
+        const handler = (event) => {
+          const normalized = normalizeStreamListingEvent(event);
+          if (!normalized) return;
+          if (firstRun && normalized.event_timestamp < cutoffSec) return;
+          LISTINGS_QUEUE.push(normalized);
+          processListingsQueue();
+        };
+
+        client.onEvents('acclimatedmooncats', [EventType.ITEM_LISTED], handler);
+        client.onEvents('wrapped-mooncatsrescue', [EventType.ITEM_LISTED], handler);
+
+        console.log('Listing bot is running (OpenSea Stream).');
+        firstRun = false;
+        return;
+      } catch (e) {
+        console.error('Failed to start OpenSea Stream for listings:', e);
+      }
+    }
+
+    console.log('Listing bot is running (HTTP polling).');
     if (firstRun) {
       firstRun = false;
       await pollListingsOnce(true);

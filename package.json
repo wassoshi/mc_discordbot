@@ -10,13 +10,14 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@opensea/stream-js": "^0.2.3",
+    "alchemy-sdk": "^2.0.0",
     "ethers": "^6.6.2",
     "express": "*",
     "node-fetch": "*",
-    "ws": "^8.18.0",
-    "alchemy-sdk": "^2.0.0",
+    "sharp": "^0.32.3",
     "web3": "^1.7.5",
-    "sharp": "^0.32.3"
+    "ws": "^8.18.0"
   },
   "type": "module",
   "author": "",
