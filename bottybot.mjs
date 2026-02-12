@@ -1045,10 +1045,15 @@ function runListingBot() {
 
   async function announceMoonCatListing(listing) {
     const sellerAddress = listing.maker;
-    const tokenId = listing.asset.identifier;
+    const nft = listing.nft || listing.asset;
+    const tokenId = nft?.identifier;
+    if (!tokenId) {
+      console.error('Listing event missing token identifier. keys=', Object.keys(listing || {}));
+      return;
+    }
 
-    if (isBlockedFullName(listing.asset?.name)) {
-      console.log(`Blacklisted name detected ("${listing.asset?.name}"); skipping listing announcement.`);
+    if (isBlockedFullName(nft?.name)) {
+      console.log(`Blacklisted name detected ("${nft?.name}"); skipping listing announcement.`);
       return;
     }
 
@@ -1064,7 +1069,7 @@ function runListingBot() {
     const formattedEthPrice = formatEthPrice(ethPriceRaw);
     const usdPrice = (ethPriceRaw * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const moonCatNameOrId = listing.asset.name;
+    const moonCatNameOrId = nft.name;
     const rescueIndex = Number(tokenId);
     const classification = await classifyMoonCat(rescueIndex);
     const imageUrl = await getMoonCatImageURL(tokenId);
@@ -1072,7 +1077,7 @@ function runListingBot() {
     const marketplaceName = listing.protocol_address ? "OpenSea" : "Blur";
     const listingUrl = marketplaceName === "Blur"
       ? `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`
-      : listing.asset.opensea_url;
+      : nft.opensea_url;
 
     const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)\n\n[ ${classification} ]`;
 
@@ -1082,7 +1087,12 @@ function runListingBot() {
 
   async function announceOldWrapperListing(listing) {
     const sellerAddress = listing.maker;
-    const tokenId = listing.asset.identifier;
+    const nft = listing.nft || listing.asset;
+    const tokenId = nft?.identifier;
+    if (!tokenId) {
+      console.error('Listing event missing token identifier. keys=', Object.keys(listing || {}));
+      return;
+    }
 
     if (isBlacklisted(sellerAddress, tokenId)) {
       console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted. Skipping announcement.`);
@@ -1122,82 +1132,108 @@ function runListingBot() {
     updateBlacklist(sellerAddress, tokenId);
   }
 
+  async function fetchOpenSeaEvents(url, headers, label) {
+    const res = await fetch(url, { headers });
+    const text = await res.text();
+
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      console.error(`[OpenSea:${label}] HTTP ${res.status} ${res.statusText} body=${text.slice(0, 500)}`);
+      return [];
+    }
+
+    const events = data?.asset_events || data?.events || [];
+    if (!Array.isArray(events)) {
+      const keys = data ? Object.keys(data).join(",") : "null";
+      console.error(`[OpenSea:${label}] Unexpected JSON shape keys=${keys} body=${text.slice(0, 500)}`);
+      return [];
+    }
+
+    return events;
+  }
+
   async function fetchListingsFromOpenSea(initialRun = false) {
     console.log('Fetching listings from OpenSea...');
     try {
-      const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=listing&limit=50`;
-      const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
+      if (!OPENSEA_API_KEY) {
+        console.error('[listing] LISTING_OPENSEA_API_KEY is missing. Listing bot disabled.');
+        return [];
+      }
 
       const headers = {
         'X-API-KEY': OPENSEA_API_KEY,
         'Accept': 'application/json'
       };
 
-      const [responseMoonCats, responseOldWrapper] = await Promise.all([
-        fetch(openseaAPIUrlMoonCats, { headers }),
-        fetch(openseaAPIUrlOldWrapper, { headers })
-      ]);
+      const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=listing&limit=50`;
+      const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
 
-      const dataMoonCats = await responseMoonCats.json();
-      const dataOldWrapper = await responseOldWrapper.json();
+      const [moonEvents, wrapEvents] = await Promise.all([
+        fetchOpenSeaEvents(openseaAPIUrlMoonCats, headers, 'acclimatedmooncats listing'),
+        fetchOpenSeaEvents(openseaAPIUrlOldWrapper, headers, 'wrapped-mooncatsrescue listing')
+      ]);
 
       const currentTime = Date.now();
       let listings = [];
 
-      if (!dataMoonCats.asset_events) console.error("MoonCats asset_events is undefined");
-      if (!dataOldWrapper.asset_events) console.error("OldWrapper asset_events is undefined");
+      const isListingEvent = (e) =>
+        (e?.event_type === 'listing' || e?.order_type === 'listing') && !e?.taker;
 
       if (initialRun) {
         const ONE_HOUR_MS = 3600000;
 
-        const moonCatsListings = (dataMoonCats.asset_events || [])
+        const moonCatsListings = (moonEvents || [])
           .filter(event => {
-            const eventTime = event.event_timestamp * 1000;
-            const isListing = event.order_type === 'listing' && !event.taker;
-            return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+            const eventTime = Number(event.event_timestamp || 0) * 1000;
+            return (currentTime - eventTime) <= ONE_HOUR_MS && isListingEvent(event);
           })
           .slice(0, 20);
 
-        const oldWrapperListings = (dataOldWrapper.asset_events || [])
+        const oldWrapperListings = (wrapEvents || [])
           .filter(event => {
-            const eventTime = event.event_timestamp * 1000;
-            const isListing = event.order_type === 'listing' && !event.taker;
-            return (currentTime - eventTime) <= ONE_HOUR_MS && isListing;
+            const eventTime = Number(event.event_timestamp || 0) * 1000;
+            return (currentTime - eventTime) <= ONE_HOUR_MS && isListingEvent(event);
           })
           .slice(0, 20);
 
         listings = [...moonCatsListings, ...oldWrapperListings];
 
         if (listings.length > 0) {
-          lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
+          lastProcessedTimestamp = Math.max(...listings.map(event => Number(event.event_timestamp || 0)));
         } else {
-          const maxMoon = Math.max(...(dataMoonCats.asset_events || []).map(e => e.event_timestamp), 0);
-          const maxWrap = Math.max(...(dataOldWrapper.asset_events || []).map(e => e.event_timestamp), 0);
+          const maxMoon = Math.max(...(moonEvents || []).map(e => Number(e.event_timestamp || 0)), 0);
+          const maxWrap = Math.max(...(wrapEvents || []).map(e => Number(e.event_timestamp || 0)), 0);
           lastProcessedTimestamp = Math.max(maxMoon, maxWrap);
         }
       } else {
-        const moonCatsListings = (dataMoonCats.asset_events || []).filter(event => {
-          const isListing = event.order_type === 'listing' && !event.taker;
-          return event.event_timestamp > lastProcessedTimestamp && isListing;
+        const moonCatsListings = (moonEvents || []).filter(event => {
+          const isListing = isListingEvent(event);
+          return Number(event.event_timestamp || 0) > lastProcessedTimestamp && isListing;
         });
 
-        const oldWrapperListings = (dataOldWrapper.asset_events || []).filter(event => {
-          const isListing = event.order_type === 'listing' && !event.taker;
-          return event.event_timestamp > lastProcessedTimestamp && isListing;
+        const oldWrapperListings = (wrapEvents || []).filter(event => {
+          const isListing = isListingEvent(event);
+          return Number(event.event_timestamp || 0) > lastProcessedTimestamp && isListing;
         });
 
         listings = [...moonCatsListings, ...oldWrapperListings];
 
         if (listings.length > 0) {
-          lastProcessedTimestamp = Math.max(...listings.map(event => event.event_timestamp));
+          lastProcessedTimestamp = Math.max(...listings.map(event => Number(event.event_timestamp || 0)));
         }
       }
 
-      console.log('Fetched listings from OpenSea.');
+      console.log(`Fetched listings from OpenSea. count=${listings.length}`);
       return listings;
     } catch (error) {
       console.error('Error fetching listings from OpenSea:', error);
-      return null;
+      return [];
     }
   }
 
@@ -1218,7 +1254,12 @@ function runListingBot() {
       }
 
       try {
-        const listingContract = listing.asset.contract.toLowerCase();
+        const nft = listing.nft || listing.asset;
+        const listingContract = (nft?.contract || '').toLowerCase();
+        if (!listingContract) {
+          console.error('Listing event missing nft/asset contract. keys=', Object.keys(listing || {}));
+          continue;
+        }
 
         if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
           await announceOldWrapperListing(listing);
