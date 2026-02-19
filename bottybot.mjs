@@ -239,9 +239,79 @@ function runSalesBot() {
   );
 
   const salesQueue = [];
-  const transferQueue = [];
-  const TRANSFER_PROCESS_DELAY_MS = 45000;
   const DISCORD_MESSAGE_DELAY_MS = 1000;
+  const RECENT_SALE_KEYS = new Set();
+  const RECENT_SALE_KEYS_MAX = 2000;
+
+  function addRecentKey(key) {
+    RECENT_SALE_KEYS.add(key);
+    if (RECENT_SALE_KEYS.size > RECENT_SALE_KEYS_MAX) {
+      const keep = Array.from(RECENT_SALE_KEYS).slice(RECENT_SALE_KEYS.size - 1200);
+      RECENT_SALE_KEYS.clear();
+      for (const k of keep) RECENT_SALE_KEYS.add(k);
+    }
+  }
+
+  function getAddr(x) {
+    if (!x) return '';
+    if (typeof x === 'string') return x.toLowerCase();
+    if (typeof x === 'object') {
+      const a = x.address || x.wallet_address || x.walletAddress || x.Address;
+      return a ? String(a).toLowerCase() : '';
+    }
+    return '';
+  }
+
+  function parseNftId(nftId) {
+    if (typeof nftId !== 'string') return { contract: '', tokenId: '' };
+    const parts = nftId.split('/').filter(Boolean);
+    if (parts.length < 3) return { contract: '', tokenId: '' };
+    const tokenId = parts[parts.length - 1];
+    const contract = parts[parts.length - 2];
+    return { contract: String(contract).toLowerCase(), tokenId: String(tokenId) };
+  }
+
+  function normalizeStreamSaleEvent(event) {
+    try {
+      const payload = event?.payload;
+      if (!payload) return null;
+
+      const item = payload.item || {};
+      const nftId = item.nft_id || item.nftId || null;
+
+      let contract = '';
+      let tokenId = '';
+
+      if (nftId) {
+        const parsed = parseNftId(nftId);
+        contract = parsed.contract;
+        tokenId = parsed.tokenId;
+      } else {
+        tokenId = String(item.token_id || item.tokenId || payload.token_id || payload.tokenId || '');
+        contract = String(item.contract_address || item.contractAddress || payload.contract_address || payload.contractAddress || '').toLowerCase();
+      }
+
+      if (!contract || !tokenId) return null;
+
+      const sellerAddress = getAddr(payload.seller || payload.maker || payload.from_account || payload.from);
+      const buyerAddress = getAddr(payload.buyer || payload.taker || payload.to_account || payload.to);
+
+      const tsStr = payload.event_timestamp || payload.eventTimestamp || payload.transaction?.timestamp || null;
+      const tsSec = tsStr ? Math.floor(new Date(tsStr).getTime() / 1000) : Math.floor(Date.now() / 1000);
+
+      const txHash =
+        payload.transaction_hash ||
+        payload.transactionHash ||
+        payload.transaction?.hash ||
+        payload.transaction?.transaction_hash ||
+        '';
+      const key = `${contract}:${tokenId}:${txHash || ''}:${tsSec}`;
+      return { contract, tokenId, sellerAddress, buyerAddress, tsSec, key };
+    } catch (e) {
+      console.error('Failed to normalize stream sale event:', e);
+      return null;
+    }
+  }
 
   async function getRealTokenIdFromWrapper(tokenId, retries = 3) {
     console.log(`Using Alchemy provider to fetch real token ID for token: ${tokenId} with retries: ${retries}`);
@@ -601,17 +671,58 @@ function runSalesBot() {
       const response = await fetch(openseaAPIUrl, { headers });
       const data = await response.json();
 
-      if (!data || !data.asset_events || data.asset_events.length === 0) {
+      const events = (data?.events || data?.asset_events || []);
+      if (!events || !Array.isArray(events) || events.length === 0) {
         console.log(`No sale events found on OpenSea for tokenId: ${tokenId} (${collectionSlug})`);
         return null;
       }
 
-      const saleEvent = data.asset_events.find(event =>
-        event.nft &&
-        event.nft.identifier?.toString() === tokenId.toString() &&
-        event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() &&
-        event.buyer
-      );
+      const wantToken = tokenId.toString();
+      const wantSeller = (sellerAddress || '').toLowerCase();
+      const wantContract = (contractAddress || '').toLowerCase();
+
+      const getSeller = (e) => {
+        const s = e?.seller;
+        if (typeof s === 'string') return s.toLowerCase();
+        if (typeof s === 'object' && s) {
+          const a = s.address || s.wallet_address || s.walletAddress;
+          return a ? String(a).toLowerCase() : '';
+        }
+        return '';
+      };
+
+      const getBuyer = (e) => {
+        const b = e?.buyer;
+        if (typeof b === 'string') return b.toLowerCase();
+        if (typeof b === 'object' && b) {
+          const a = b.address || b.wallet_address || b.walletAddress;
+          return a ? String(a).toLowerCase() : '';
+        }
+        return '';
+      };
+
+      const getNft = (e) => e?.nft || e?.asset || null;
+
+      const saleEvent = events.find(e => {
+        const nft = getNft(e);
+        const id = nft?.identifier?.toString?.() || nft?.token_id?.toString?.() || '';
+        const c = (nft?.contract || nft?.contract_address || '').toLowerCase();
+
+        if (!id || !c) return false;
+        if (id !== wantToken) return false;
+        if (c !== wantContract) return false;
+
+        if (wantSeller) {
+          const s = getSeller(e);
+          if (!s) return false;
+          if (s !== wantSeller) return false;
+        }
+
+        const b = getBuyer(e);
+        if (!b) return false;
+
+        return true;
+      });
 
       if (!saleEvent) {
         console.log(`No matching sale event found for tokenId: ${tokenId} (${collectionSlug})`);
@@ -624,8 +735,10 @@ function runSalesBot() {
       }
 
       const paymentToken = saleEvent.payment;
-      const ethPrice = paymentToken.quantity / (10 ** paymentToken.decimals);
+      const ethPrice = Number(paymentToken.quantity) / (10 ** Number(paymentToken.decimals));
       const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
+      const fromAddress = getSeller(saleEvent);
+      const toAddress = getBuyer(saleEvent);
 
       console.log(`Fetched sale data for tokenId: ${tokenId}`);
       return {
@@ -633,8 +746,8 @@ function runSalesBot() {
         ethPrice,
         transactionUrl,
         payment: paymentToken,
-        fromAddress: saleEvent.seller,
-        toAddress: saleEvent.buyer,
+        fromAddress: fromAddress,
+        toAddress: toAddress,
         protocolAddress: saleEvent.protocol_address,
         saleSellerAddress: sellerAddress,
         contractAddress
@@ -697,83 +810,87 @@ function runSalesBot() {
     }
   }
 
-  let isProcessingTransfers = false;
-  async function processTransferQueue() {
-    if (isProcessingTransfers) return;
-    isProcessingTransfers = true;
+  function ensureNodeSessionStorageShim() {
+    if (globalThis.sessionStorage) return;
 
-    console.log('Processing transfer queue...');
-    while (transferQueue.length > 0) {
-      const transfer = transferQueue.shift();
-      console.log(`Processing transfer for tokenId: ${transfer.tokenId}`);
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, TRANSFER_PROCESS_DELAY_MS));
-
-        const receipt = await fetchTransactionReceipt(transfer.transactionHash);
-        if (receipt && receipt.status) {
-          console.log(`Valid transfer detected for tokenId: ${transfer.tokenId}, pushing to sales queue`);
-          salesQueue.push(transfer);
-          processSalesQueue();
-        } else {
-          console.log(`Invalid transfer detected for tokenId: ${transfer.tokenId}`);
-        }
-      } catch (error) {
-        console.error(`Error processing transfer for tokenId: ${transfer.tokenId}`, error);
+    const store = new Map();
+    globalThis.sessionStorage = {
+      getItem: (k) => {
+        const key = String(k);
+        return store.has(key) ? store.get(key) : null;
+      },
+      setItem: (k, v) => {
+        store.set(String(k), String(v));
+      },
+      removeItem: (k) => {
+        store.delete(String(k));
+      },
+      clear: () => {
+        store.clear();
       }
-    }
-
-    isProcessingTransfers = false;
-
-    if (transferQueue.length > 0) {
-      setImmediate(processTransferQueue);
-    } else {
-      console.log('Finished processing transfer queue.');
-    }
+    };
   }
 
-  async function fetchTransactionReceipt(transactionHash) {
-    console.log(`Fetching transaction receipt for hash: ${transactionHash}`);
+  function startSalesStream() {
+    if (!OPENSEA_API_KEY) {
+      console.error('[sales] SALES_OPENSEA_API_KEY is missing. Sales stream disabled.');
+      return;
+    }
+    if (!OpenSeaStreamClient || !EventType || !Network || !StreamWebSocket) {
+      console.error('[sales] stream-js or ws not available. Sales stream disabled.');
+      return;
+    }
+
+    ensureNodeSessionStorageShim();
+
+    let client;
     try {
-      const receipt = await web3.eth.getTransactionReceipt(transactionHash);
-      console.log(`Fetched transaction receipt for hash: ${transactionHash}`);
-      return receipt;
-    } catch (error) {
-      console.error(`Error fetching transaction receipt for hash: ${transactionHash}`, error);
-      return null;
+      client = new OpenSeaStreamClient({
+        network: Network.MAINNET,
+        token: OPENSEA_API_KEY,
+        connectOptions: {
+          transport: StreamWebSocket,
+          sessionStorage: globalThis.sessionStorage
+        }
+      });
+    } catch (e) {
+      console.error('[sales] Failed to create OpenSeaStreamClient:', e);
+      return;
     }
+
+    const handler = (event) => {
+      const normalized = normalizeStreamSaleEvent(event);
+      if (!normalized) return;
+
+      if (RECENT_SALE_KEYS.has(normalized.key)) return;
+      addRecentKey(normalized.key);
+
+      const contractLower = normalized.contract.toLowerCase();
+      const tokenId = normalized.tokenId;
+
+      // Only handle the two contracts we care about.
+      if (
+        contractLower !== MOONCATS_CONTRACT_ADDRESS.toLowerCase() &&
+        contractLower !== OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()
+      ) {
+        return;
+      }
+
+      salesQueue.push({
+        tokenId: tokenId,
+        sellerAddress: normalized.sellerAddress || '',
+        contractAddress: contractLower
+      });
+      processSalesQueue();
+    };
+
+    client.onEvents('acclimatedmooncats', [EventType.ITEM_SOLD], handler);
+    client.onEvents('wrapped-mooncatsrescue', [EventType.ITEM_SOLD], handler);
+
+    console.log('Sales bot is running (OpenSea Stream).');
   }
 
-  mooncatsContract.events.Transfer({ fromBlock: 'latest' })
-    .on('data', (event) => {
-      console.log(`Transfer event detected for tokenId: ${event.returnValues.tokenId}`);
-      transferQueue.push({
-        tokenId: event.returnValues.tokenId,
-        transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase(),
-        contractAddress: MOONCATS_CONTRACT_ADDRESS
-      });
-      processTransferQueue();
-    })
-    .on('error', (error) => {
-      console.error('Error in MoonCats transfer event listener:', error);
-    });
-
-  oldWrapperContract.events.Transfer({ fromBlock: 'latest' })
-    .on('data', (event) => {
-      console.log(`Old Wrapper transfer event detected for tokenId: ${event.returnValues.tokenId}`);
-      transferQueue.push({
-        tokenId: event.returnValues.tokenId,
-        transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase(),
-        contractAddress: OLD_WRAPPER_CONTRACT_ADDRESS
-      });
-      processTransferQueue();
-    })
-    .on('error', (error) => {
-      console.error('Error in Old Wrapper transfer event listener:', error);
-    });
-
+  startSalesStream();
   console.log("Sales bot started.");
 }
 
