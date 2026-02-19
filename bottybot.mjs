@@ -1,8 +1,6 @@
 import Web3 from 'web3';
 import express from 'express';
 import fetch from 'node-fetch';
-import { fileURLToPath } from 'url';
-import path from 'path';
 import { ethers } from 'ethers';
 
 let OpenSeaStreamClient, EventType, Network, StreamWebSocket;
@@ -17,11 +15,13 @@ try {
   StreamWebSocket = ws.WebSocket;
 } catch {}
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 app.use(express.json());
+
+process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
+process.on('uncaughtException', (e) => console.error('[uncaughtException]', e));
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const isBlacklistedName = (s) =>
   typeof s === 'string' &&
@@ -163,16 +163,7 @@ function createWeb3Provider(alchemyProjectId, getWeb3, label = 'ws') {
   return setupWebSocketProvider();
 }
 
-let web3;
-web3 = new Web3(
-  createWeb3Provider(
-    process.env.SALES_ALCHEMY_PROJECT_ID,
-    () => web3,
-    'sales'
-  )
-);
-
-function runSalesBot() {
+function runSalesBotStream() {
   let cachedConversionRate = null;
   let lastFetchedTime = 0;
 
@@ -185,37 +176,12 @@ function runSalesBot() {
     '0xa8b42c82a628dc43c2c2285205313e5106ea2853',
     '0x98968f0747e0a261532cacc0be296375f5c08398',
     '0xd4fe01ce79c84c68f9307d415b8f392d140c242c'
-  ];
-
-  const ethersProvider = new ethers.AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
+  ].map((a) => a.toLowerCase());
 
   const MOONCATS_CONTRACT_ADDRESS = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
   const OLD_WRAPPER_CONTRACT_ADDRESS = '0x7c40c393dc0f283f318791d746d894ddd3693572';
 
-  const MOONCATS_CONTRACT_ABI = [
-    {
-      "anonymous": false,
-      "inputs": [
-        { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
-        { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
-        { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-      ],
-      "name": "Transfer",
-      "type": "event"
-    }
-  ];
-
   const OLD_WRAPPER_CONTRACT_ABI = [
-    {
-      "anonymous": false,
-      "inputs": [
-        { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
-        { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
-        { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-      ],
-      "name": "Transfer",
-      "type": "event"
-    },
     {
       "inputs": [
         { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
@@ -229,44 +195,30 @@ function runSalesBot() {
     }
   ];
 
-  const mooncatsContract = new web3.eth.Contract(MOONCATS_CONTRACT_ABI, MOONCATS_CONTRACT_ADDRESS);
-  const oldWrapperContract = new web3.eth.Contract(OLD_WRAPPER_CONTRACT_ABI, OLD_WRAPPER_CONTRACT_ADDRESS);
+  const ethersProvider = new ethers.AlchemyProvider('homestead', ALCHEMY_PROJECT_ID);
+  const wrapperReadContract = new ethers.Contract(OLD_WRAPPER_CONTRACT_ADDRESS, OLD_WRAPPER_CONTRACT_ABI, ethersProvider);
 
-  const wrapperReadContract = new ethers.Contract(
-    OLD_WRAPPER_CONTRACT_ADDRESS,
-    OLD_WRAPPER_CONTRACT_ABI,
-    ethersProvider
-  );
-
-  const salesQueue = [];
-  const transferQueue = [];
-  const TRANSFER_PROCESS_DELAY_MS = 45000;
   const DISCORD_MESSAGE_DELAY_MS = 1000;
 
   async function getRealTokenIdFromWrapper(tokenId, retries = 3) {
-    console.log(`Using Alchemy provider to fetch real token ID for token: ${tokenId} with retries: ${retries}`);
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const catId = await wrapperReadContract._tokenIDToCatID(tokenId);
-        console.log(`Real token ID: ${catId} for wrapped token: ${tokenId}`);
         return catId;
       } catch (error) {
         console.error(`Attempt ${attempt} - Error fetching real token ID for wrapped token ${tokenId}:`, error);
         if (attempt === retries) throw new Error(`Failed after ${retries} retries`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await sleep(1000);
       }
     }
     return null;
   }
 
   async function getMoonCatImageURL(tokenId) {
-    console.log(`Fetching MoonCat image URL for tokenId: ${tokenId}`);
     try {
       const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
       if (!response.ok) throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
-      const imageUrl = response.url;
-      console.log(`Fetched image URL for tokenId: ${tokenId}: ${imageUrl}`);
-      return imageUrl;
+      return response.url;
     } catch (error) {
       console.error('Error fetching MoonCat image URL:', error);
       return null;
@@ -274,7 +226,6 @@ function runSalesBot() {
   }
 
   async function getOldWrapperImageAndDetails(tokenId) {
-    console.log(`Fetching details for old wrapped tokenId: ${tokenId}`);
     try {
       const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
       if (!realTokenIdHex) throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
@@ -287,8 +238,6 @@ function runSalesBot() {
       const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
       const isNamed = data.details.isNamed === "Yes";
       const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
-
-      console.log(`Fetched details for tokenId: ${tokenId} - Name: ${name}, RescueIndex: ${rescueIndex}, IsNamed: ${isNamed}`);
       return { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
     } catch (error) {
       console.error('Error fetching details from MoonCat API:', error);
@@ -307,25 +256,23 @@ function runSalesBot() {
     const oneHour = 3600000;
 
     if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
-      console.log(`Using cached ETH to USD conversion rate: ${cachedConversionRate}`);
       return cachedConversionRate;
     }
+
+    if (!COINMARKETCAP_API_KEY) return null;
 
     const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
     const params = new URLSearchParams({ 'symbol': 'ETH', 'convert': 'USD' });
 
-    console.log(`Fetching ETH to USD conversion rate...`);
     try {
       const response = await fetch(`${url}?${params}`, {
         method: 'GET',
         headers: { 'X-CMC_PRO_API_KEY': COINMARKETCAP_API_KEY, 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error(`API responded with status ${response.status}`);
-
       const data = await response.json();
       cachedConversionRate = data.data.ETH.quote.USD.price;
       lastFetchedTime = currentTime;
-      console.log(`Fetched ETH to USD conversion rate: ${cachedConversionRate}`);
       return cachedConversionRate;
     } catch (error) {
       console.error('Error fetching ETH to USD conversion rate:', error);
@@ -334,14 +281,12 @@ function runSalesBot() {
   }
 
   async function getMoonCatNameOrId(tokenId) {
-    console.log(`Fetching MoonCat name or ID for tokenId: ${tokenId}`);
     const tokenIdStr = tokenId.toString();
     const tokenIdHex = tokenIdStr.startsWith('0x') ? tokenIdStr.slice(2) : tokenIdStr;
 
     try {
       const response = await fetch(`https://api.mooncat.community/traits/${tokenIdHex}`);
       const data = await response.json();
-      console.log(`Fetched MoonCat name or ID for tokenId: ${tokenId}:`, data);
       return data;
     } catch (error) {
       console.error(`Error fetching MoonCat name or ID for token ${tokenIdHex}:`, error);
@@ -351,7 +296,6 @@ function runSalesBot() {
   }
 
   async function classifyMoonCat(rescueIndex) {
-    console.log(`Classifying MoonCat for rescueIndex: ${rescueIndex}`);
     if (rescueIndex < 492) return 'Day 1 Rescue, 2017 Rescue';
     if (rescueIndex < 904) return 'Day 2 Rescue, 2017 Rescue';
     if (rescueIndex < 1569) return 'Week 1 Rescue, 2017 Rescue';
@@ -367,13 +311,10 @@ function runSalesBot() {
   }
 
   async function fetchEnsName(address) {
-    console.log(`Fetching ENS name for address: ${address}`);
     try {
       const ensName = await ethersProvider.lookupAddress(address);
-      console.log(`Fetched ENS name for address: ${address}: ${ensName}`);
       return ensName || address;
     } catch (error) {
-      console.error(`Failed to fetch ENS name for address ${address}:`, error);
       return address;
     }
   }
@@ -384,11 +325,7 @@ function runSalesBot() {
   }
 
   async function sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
-    console.log(`Preparing to send Discord notification for tokenId: ${tokenId}`);
-    if (!messageText) {
-      console.error('Error: Message text is empty.');
-      return;
-    }
+    if (!messageText) return;
 
     try {
       const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
@@ -428,21 +365,15 @@ function runSalesBot() {
         console.log(`Discord response text: ${responseText}`);
 
         if (!response.ok) throw new Error(`Error sending to Discord: ${response.statusText}`);
-
-        console.log(`Successfully sent MoonCat #${tokenId} announcement to Discord.`);
-        await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
+        await sleep(DISCORD_MESSAGE_DELAY_MS);
       }
     } catch (error) {
-      console.error('Error preparing to send Discord notification:', error);
+      console.error('Error sending Discord notification:', error);
     }
   }
 
   async function sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl) {
-    console.log(`Constructing Chainstation link for rescueIndex: ${rescueIndex}`);
-    if (!messageText) {
-      console.error('Error: Message text is empty.');
-      return;
-    }
+    if (!messageText) return;
 
     try {
       const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
@@ -482,27 +413,23 @@ function runSalesBot() {
         console.log(`Discord response text: ${responseText}`);
 
         if (!response.ok) throw new Error(`Error sending to Discord: ${response.statusText}`);
-
-        console.log(`Successfully sent Old Wrapper MoonCat #${tokenId} sale announcement to Discord webhook: ${webhookUrl}`);
-        await new Promise(resolve => setTimeout(resolve, DISCORD_MESSAGE_DELAY_MS));
+        await sleep(DISCORD_MESSAGE_DELAY_MS);
       }
     } catch (error) {
-      console.error('Error preparing to send Discord notification (Old Wrapper):', error);
+      console.error('Error sending Discord notification (Old Wrapper):', error);
     }
   }
 
   async function announceMoonCatSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress, sellerAddress) {
-    console.log(`Announcing MoonCat sale for tokenId: ${tokenId}`);
     const ethToUsdRate = await getEthToUsdConversionRate();
-    if (!ethToUsdRate) return;
 
     const formattedEthPrice = formatEthPrice(ethPrice);
-    const usdPrice = (ethPrice * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const usdPrice = ethToUsdRate ? (ethPrice * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : null;
 
     const moonCatData = await getMoonCatNameOrId(tokenId);
     if (!moonCatData) return;
 
-    const moonCatNameOrId = moonCatData.details.name ? moonCatData.details.name : moonCatData.details.catId;
+    const moonCatNameOrId = moonCatData.details?.name ? moonCatData.details.name : moonCatData.details?.catId;
     if (isBlockedFullName(moonCatNameOrId)) {
       console.log(`Blacklisted name detected ("${moonCatNameOrId}"); skipping sale announcement.`);
       return;
@@ -511,10 +438,10 @@ function runSalesBot() {
     const imageUrl = await getMoonCatImageURL(tokenId);
     if (!imageUrl) return;
 
-    const currency = paymentToken.symbol;
+    const currency = paymentToken?.symbol || 'ETH';
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
-    if (!protocolAddress || protocolAddress.trim() === '') {
+    if (!protocolAddress || String(protocolAddress).trim() === '') {
       marketplaceName = "Blur";
       marketplaceUrl = `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`;
     }
@@ -523,31 +450,29 @@ function runSalesBot() {
     const shortBuyerAddress = buyerAddress.substring(0, 6);
     const displayBuyerAddress = ensNameOrAddress !== buyerAddress ? ensNameOrAddress : shortBuyerAddress;
 
-    const sellerIsVault = VAULT_ADDRESSES.includes(sellerAddress.toLowerCase());
-    const buyerIsVault = VAULT_ADDRESSES.includes(buyerAddress.toLowerCase());
+    const sellerIsVault = sellerAddress ? VAULT_ADDRESSES.includes(String(sellerAddress).toLowerCase()) : false;
+    const buyerIsVault = buyerAddress ? VAULT_ADDRESSES.includes(String(buyerAddress).toLowerCase()) : false;
 
     const rescueIndex = Number(tokenId);
     const classification = await classifyMoonCat(rescueIndex);
 
     let messageText;
     if (sellerIsVault) {
-      messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} redeemed from the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n[ ${classification} ]`;
+      messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} redeemed from the vault for ${formattedEthPrice} ${currency}${usdPrice ? ` ($${usdPrice})` : ''}\n\n[ ${classification} ]`;
     } else if (buyerIsVault) {
-      messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} deposited into the vault for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n[ ${classification} ]`;
+      messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} deposited into the vault for ${formattedEthPrice} ${currency}${usdPrice ? ` ($${usdPrice})` : ''}\n\n[ ${classification} ]`;
     } else {
-      messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency} ($${usdPrice})\n\n[ ${classification} ]`;
+      messageText = `MoonCat #${tokenId}: ${moonCatNameOrId} found a new home with [${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ${formattedEthPrice} ${currency}${usdPrice ? ` ($${usdPrice})` : ''}\n\n[ ${classification} ]`;
     }
 
     await sendToDiscord(tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
   }
 
-  async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress) {
-    console.log(`Announcing Old Wrapper sale for tokenId: ${tokenId}`);
+  async function announceOldWrapperSale(tokenId, ethPrice, transactionUrl, paymentToken, protocolAddress, buyerAddress, sellerAddress) {
     const ethToUsdRate = await getEthToUsdConversionRate();
-    if (!ethToUsdRate) return;
 
     const formattedEthPrice = formatEthPrice(ethPrice);
-    const usdPrice = (ethPrice * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const usdPrice = ethToUsdRate ? (ethPrice * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : null;
 
     const { imageUrl, name, rescueIndex, realTokenIdHex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
     if (isNamed && isBlockedFullName(name)) {
@@ -558,11 +483,11 @@ function runSalesBot() {
     if (!imageUrl || rescueIndex == null) return;
 
     const displayCatId = isNamed ? name : realTokenIdHex;
+    const currency = paymentToken?.symbol || 'ETH';
 
-    const currency = paymentToken.symbol;
     let marketplaceName = "OpenSea";
     let marketplaceUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
-    if (!protocolAddress || protocolAddress.trim() === '') {
+    if (!protocolAddress || String(protocolAddress).trim() === '') {
       marketplaceName = "Blur";
       marketplaceUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
     }
@@ -576,205 +501,262 @@ function runSalesBot() {
     const messageText =
       `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} found a new home with ` +
       `[${displayBuyerAddress}](https://chainstation.mooncatrescue.com/owners/${buyerAddress}) for ` +
-      `${formattedEthPrice} ${currency} ($${usdPrice})\n\n[ ${classification} ]`;
+      `${formattedEthPrice} ${currency}${usdPrice ? ` ($${usdPrice})` : ''}\n\n[ ${classification} ]`;
 
     await sendOldWrapperSaleToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, transactionUrl, marketplaceName, marketplaceUrl);
   }
 
-  async function fetchSaleDataFromOpenSea(tokenId, sellerAddress, contractAddress) {
-    console.log(`Fetching sale data from OpenSea for tokenId: ${tokenId} contract: ${contractAddress}`);
+  async function fetchOpenSeaSaleEvents(collectionSlug) {
+    if (!OPENSEA_API_KEY) return { events: [], status: 0, body: '' };
+
+    const headers = { 'X-API-KEY': OPENSEA_API_KEY, 'Accept': 'application/json' };
+    const url = `https://api.opensea.io/api/v2/events/collection/${collectionSlug}?event_type=sale&limit=50`;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      const res = await fetch(url, { headers });
+      const body = await res.text();
+      let data = null;
+      try { data = JSON.parse(body); } catch {}
+      const events = data?.asset_events || data?.events || [];
+      return { events: Array.isArray(events) ? events : [], status: res.status, body: body.slice(0, 800) };
+    } catch (e) {
+      return { events: [], status: 0, body: String(e?.message || e) };
+    }
+  }
 
-      const headers = {
-        'X-API-KEY': OPENSEA_API_KEY,
-        'Accept': 'application/json'
-      };
+  async function hydrateSaleByTxHash(collectionSlug, txHash, expectedSellerLower) {
+    const tx = String(txHash || '').toLowerCase();
+    if (!tx) return null;
 
-      const isOldWrapper = contractAddress.toLowerCase() === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase();
-      const collectionSlug = isOldWrapper ? 'wrapped-mooncatsrescue' : 'acclimatedmooncats';
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      const { events, status, body } = await fetchOpenSeaSaleEvents(collectionSlug);
 
-      const openseaAPIUrl =
-        `https://api.opensea.io/api/v2/events/collection/${collectionSlug}?event_type=sale&limit=50`;
-
-      const response = await fetch(openseaAPIUrl, { headers });
-      const data = await response.json();
-
-      if (!data || !data.asset_events || data.asset_events.length === 0) {
-        console.log(`No sale events found on OpenSea for tokenId: ${tokenId} (${collectionSlug})`);
-        return null;
+      if (status === 429) {
+        const wait = Math.min(30000, 1500 * attempt);
+        console.log(`[sales] OpenSea 429 on hydrate. waitMs=${wait} attempt=${attempt}`);
+        await sleep(wait);
+        continue;
       }
 
-      const saleEvent = data.asset_events.find(event =>
-        event.nft &&
-        event.nft.identifier?.toString() === tokenId.toString() &&
-        event.seller && event.seller.toLowerCase() === sellerAddress.toLowerCase() &&
-        event.buyer
-      );
-
-      if (!saleEvent) {
-        console.log(`No matching sale event found for tokenId: ${tokenId} (${collectionSlug})`);
-        return null;
+      if (!events || events.length === 0) {
+        const wait = Math.min(20000, 1200 * attempt);
+        console.log(`[sales] No sale events yet for slug=${collectionSlug} tx=${tx.slice(0, 10)} attempt=${attempt} status=${status} body=${body}`);
+        await sleep(wait);
+        continue;
       }
 
-      if (!saleEvent.seller || !saleEvent.buyer || !saleEvent.payment || !saleEvent.transaction) {
-        console.log(`Incomplete sale data for tokenId: ${tokenId}`);
-        return null;
+      const match = events.find((e) => {
+        const etx = String(e?.transaction || '').toLowerCase();
+        if (!etx || etx !== tx) return false;
+        if (expectedSellerLower) {
+          const s = String(e?.seller || '').toLowerCase();
+          if (s && s !== expectedSellerLower) return false;
+        }
+        return true;
+      });
+
+      if (!match) {
+        const wait = Math.min(20000, 1200 * attempt);
+        await sleep(wait);
+        continue;
       }
 
-      const paymentToken = saleEvent.payment;
-      const ethPrice = paymentToken.quantity / (10 ** paymentToken.decimals);
-      const transactionUrl = `https://etherscan.io/tx/${saleEvent.transaction}`;
+      const nft = match?.nft || {};
+      const tokenId = nft?.identifier?.toString();
+      const contract = String(nft?.contract || '').toLowerCase();
+      const seller = String(match?.seller || '').toLowerCase();
+      const buyer = String(match?.buyer || '').toLowerCase();
+      const paymentToken = match?.payment || {};
+      const protocolAddress = match?.protocol_address || '';
+      const ethPrice = Number(paymentToken.quantity) / (10 ** Number(paymentToken.decimals ?? 18));
+      const transactionUrl = `https://etherscan.io/tx/${match.transaction}`;
 
-      console.log(`Fetched sale data for tokenId: ${tokenId}`);
+      if (!tokenId || !contract || !seller || !buyer || !paymentToken || !match.transaction) return null;
+
       return {
         tokenId,
-        ethPrice,
-        transactionUrl,
+        contractAddress: contract,
+        seller,
+        buyer,
         payment: paymentToken,
-        fromAddress: saleEvent.seller,
-        toAddress: saleEvent.buyer,
-        protocolAddress: saleEvent.protocol_address,
-        saleSellerAddress: sellerAddress,
-        contractAddress
+        protocolAddress,
+        ethPrice,
+        transactionUrl
       };
-    } catch (error) {
-      console.error(`Error fetching sale data from OpenSea for tokenId: ${tokenId}`, error);
+    }
+
+    return null;
+  }
+
+  function normalizeStreamSoldEvent(event, slugHint) {
+    try {
+      const outer = event?.payload ?? event;
+      const payload = outer && outer.payload && outer.event_type ? outer.payload : outer;
+
+      const txHash =
+        payload?.transaction?.hash ||
+        payload?.transaction_hash ||
+        payload?.transactionHash ||
+        payload?.transaction ||
+        null;
+
+      const maker =
+        payload?.maker?.address ||
+        payload?.maker?.wallet_address ||
+        payload?.maker ||
+        null;
+
+      const taker =
+        payload?.taker?.address ||
+        payload?.taker?.wallet_address ||
+        payload?.taker ||
+        null;
+
+      const protocolAddress = payload?.protocol_address || payload?.protocolAddress || '';
+
+      const item = payload?.item || {};
+      const nftId = item?.nft_id || item?.nftId || payload?.nft_id || payload?.nftId || null;
+
+      let contract = null;
+      let tokenId = null;
+      if (typeof nftId === 'string' && nftId.length) {
+        const parts = nftId.split('/').filter(Boolean);
+        if (parts.length >= 3) {
+          tokenId = parts[parts.length - 1];
+          contract = parts[parts.length - 2];
+        }
+      }
+
+      const tsStr = payload?.event_timestamp || payload?.eventTimestamp || payload?.transaction?.timestamp || null;
+      const tsSec = tsStr ? Math.floor(new Date(tsStr).getTime() / 1000) : Math.floor(Date.now() / 1000);
+
+      return {
+        slug: slugHint,
+        txHash: txHash ? String(txHash) : null,
+        seller: maker ? String(maker).toLowerCase() : null,
+        buyer: taker ? String(taker).toLowerCase() : null,
+        protocolAddress,
+        contractAddress: contract ? String(contract).toLowerCase() : null,
+        tokenId: tokenId ? String(tokenId) : null,
+        event_timestamp: tsSec
+      };
+    } catch (e) {
+      console.error('Failed to normalize stream sold event:', e);
       return null;
     }
   }
 
+  const SALES_QUEUE = [];
+  const PROCESSED_SALES = new Set();
   let isProcessingSales = false;
+
   async function processSalesQueue() {
     if (isProcessingSales) return;
     isProcessingSales = true;
 
-    console.log('Processing sales queue...');
-    while (salesQueue.length > 0) {
-      const sale = salesQueue.shift();
-      console.log(`Processing sale for tokenId: ${sale.tokenId}`);
+    while (SALES_QUEUE.length > 0) {
+      const sale = SALES_QUEUE.shift();
 
       try {
-        const contractAddress = sale.contractAddress.toLowerCase();
-        const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, contractAddress);
+        let tokenId = sale.tokenId;
+        let contractAddress = sale.contractAddress;
+        let seller = sale.seller;
+        let buyer = sale.buyer;
+        let protocolAddress = sale.protocolAddress;
+        let payment = null;
+        let ethPrice = null;
+        let transactionUrl = null;
 
-        if (saleData) {
-          if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
-            await announceOldWrapperSale(
-              saleData.tokenId,
-              saleData.ethPrice,
-              saleData.transactionUrl,
-              saleData.payment,
-              saleData.protocolAddress,
-              saleData.toAddress
-            );
-          } else if (contractAddress === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
-            await announceMoonCatSale(
-              saleData.tokenId,
-              saleData.ethPrice,
-              saleData.transactionUrl,
-              saleData.payment,
-              saleData.protocolAddress,
-              saleData.toAddress,
-              saleData.fromAddress
-            );
-          } else {
-            console.error(`Unrecognized contract address: ${contractAddress}`);
-          }
+        const key = `${sale.slug}:${String(sale.txHash || '')}`;
+        if (PROCESSED_SALES.has(key)) continue;
+
+        const hydrated = await hydrateSaleByTxHash(sale.slug, sale.txHash, seller);
+        if (!hydrated) {
+          console.log(`[sales] Could not hydrate sale for slug=${sale.slug} tx=${String(sale.txHash).slice(0, 12)}...`);
+          continue;
         }
-      } catch (error) {
-        console.error(`Error processing sale for tokenId: ${sale.tokenId}`, error);
+
+        tokenId = hydrated.tokenId;
+        contractAddress = hydrated.contractAddress;
+        seller = hydrated.seller;
+        buyer = hydrated.buyer;
+        payment = hydrated.payment;
+        ethPrice = hydrated.ethPrice;
+        transactionUrl = hydrated.transactionUrl;
+        protocolAddress = hydrated.protocolAddress;
+
+        PROCESSED_SALES.add(key);
+        if (PROCESSED_SALES.size > 300) {
+          const first = PROCESSED_SALES.keys().next().value;
+          PROCESSED_SALES.delete(first);
+        }
+
+        if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+          await announceOldWrapperSale(
+            tokenId,
+            ethPrice,
+            transactionUrl,
+            payment,
+            protocolAddress,
+            buyer,
+            seller
+          );
+        } else if (contractAddress === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
+          await announceMoonCatSale(
+            tokenId,
+            ethPrice,
+            transactionUrl,
+            payment,
+            protocolAddress,
+            buyer,
+            seller
+          );
+        } else {
+          console.error(`[sales] Unrecognized contract address: ${contractAddress}`);
+        }
+      } catch (e) {
+        console.error('[sales] Error processing sale:', e);
       }
     }
 
     isProcessingSales = false;
-
-    if (salesQueue.length > 0) {
-      setImmediate(processSalesQueue);
-    } else {
-      console.log('Finished processing sales queue.');
-    }
+    if (SALES_QUEUE.length > 0) setImmediate(processSalesQueue);
   }
 
-  let isProcessingTransfers = false;
-  async function processTransferQueue() {
-    if (isProcessingTransfers) return;
-    isProcessingTransfers = true;
-
-    console.log('Processing transfer queue...');
-    while (transferQueue.length > 0) {
-      const transfer = transferQueue.shift();
-      console.log(`Processing transfer for tokenId: ${transfer.tokenId}`);
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, TRANSFER_PROCESS_DELAY_MS));
-
-        const receipt = await fetchTransactionReceipt(transfer.transactionHash);
-        if (receipt && receipt.status) {
-          console.log(`Valid transfer detected for tokenId: ${transfer.tokenId}, pushing to sales queue`);
-          salesQueue.push(transfer);
-          processSalesQueue();
-        } else {
-          console.log(`Invalid transfer detected for tokenId: ${transfer.tokenId}`);
-        }
-      } catch (error) {
-        console.error(`Error processing transfer for tokenId: ${transfer.tokenId}`, error);
-      }
+  function startSalesStream() {
+    if (!OpenSeaStreamClient || !StreamWebSocket || !OPENSEA_API_KEY) {
+      console.error('[sales] Stream not available or SALES_OPENSEA_API_KEY missing. Sales bot disabled.');
+      return;
     }
 
-    isProcessingTransfers = false;
-
-    if (transferQueue.length > 0) {
-      setImmediate(processTransferQueue);
-    } else {
-      console.log('Finished processing transfer queue.');
-    }
-  }
-
-  async function fetchTransactionReceipt(transactionHash) {
-    console.log(`Fetching transaction receipt for hash: ${transactionHash}`);
-    try {
-      const receipt = await web3.eth.getTransactionReceipt(transactionHash);
-      console.log(`Fetched transaction receipt for hash: ${transactionHash}`);
-      return receipt;
-    } catch (error) {
-      console.error(`Error fetching transaction receipt for hash: ${transactionHash}`, error);
-      return null;
-    }
-  }
-
-  mooncatsContract.events.Transfer({ fromBlock: 'latest' })
-    .on('data', (event) => {
-      console.log(`Transfer event detected for tokenId: ${event.returnValues.tokenId}`);
-      transferQueue.push({
-        tokenId: event.returnValues.tokenId,
-        transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase(),
-        contractAddress: MOONCATS_CONTRACT_ADDRESS
-      });
-      processTransferQueue();
-    })
-    .on('error', (error) => {
-      console.error('Error in MoonCats transfer event listener:', error);
+    const client = new OpenSeaStreamClient({
+      network: Network ? Network.MAINNET : undefined,
+      token: OPENSEA_API_KEY,
+      connectOptions: { transport: StreamWebSocket },
+      onError: (err) => console.error('[sales] Stream error:', err)
     });
 
-  oldWrapperContract.events.Transfer({ fromBlock: 'latest' })
-    .on('data', (event) => {
-      console.log(`Old Wrapper transfer event detected for tokenId: ${event.returnValues.tokenId}`);
-      transferQueue.push({
-        tokenId: event.returnValues.tokenId,
-        transactionHash: event.transactionHash,
-        sellerAddress: event.returnValues.from.toLowerCase(),
-        contractAddress: OLD_WRAPPER_CONTRACT_ADDRESS
-      });
-      processTransferQueue();
-    })
-    .on('error', (error) => {
-      console.error('Error in Old Wrapper transfer event listener:', error);
-    });
+    const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
 
-  console.log("Sales bot started.");
+    const handlerFactory = (slug) => (event) => {
+      const normalized = normalizeStreamSoldEvent(event, slug);
+      if (!normalized?.txHash) return;
+      if (normalized.event_timestamp && normalized.event_timestamp < cutoffSec) return;
+
+      const key = `${slug}:${normalized.txHash}`;
+      if (PROCESSED_SALES.has(key)) return;
+
+      SALES_QUEUE.push(normalized);
+      processSalesQueue();
+    };
+
+    client.onItemSold('acclimatedmooncats', handlerFactory('acclimatedmooncats'));
+    client.onItemSold('wrapped-mooncatsrescue', handlerFactory('wrapped-mooncatsrescue'));
+
+    console.log('Sales bot started (OpenSea Stream).');
+  }
+
+  startSalesStream();
 }
 
 function runListingBot() {
@@ -795,16 +777,6 @@ function runListingBot() {
 
   const OLD_WRAPPER_CONTRACT_ABI = [
     {
-      "anonymous": false,
-      "inputs": [
-        { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
-        { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
-        { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" }
-      ],
-      "name": "Transfer",
-      "type": "event"
-    },
-    {
       "inputs": [
         { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
       ],
@@ -817,11 +789,7 @@ function runListingBot() {
     }
   ];
 
-  const wrapperReadContract = new ethers.Contract(
-    OLD_WRAPPER_CONTRACT_ADDRESS,
-    OLD_WRAPPER_CONTRACT_ABI,
-    provider
-  );
+  const wrapperReadContract = new ethers.Contract(OLD_WRAPPER_CONTRACT_ADDRESS, OLD_WRAPPER_CONTRACT_ABI, provider);
 
   const LISTINGS_QUEUE = [];
   const PROCESSED_LISTINGS = new Set();
@@ -840,11 +808,11 @@ function runListingBot() {
 
   function normalizeStreamListingEvent(event) {
     try {
-      const payload = event?.payload;
-      if (!payload) return null;
+      const outer = event?.payload ?? event;
+      const payload = outer && outer.payload && outer.event_type ? outer.payload : outer;
 
-      const item = payload.item || {};
-      const nftId = item.nft_id || item.nftId;
+      const item = payload?.item || {};
+      const nftId = item?.nft_id || item?.nftId || payload?.nft_id || payload?.nftId;
       if (typeof nftId !== 'string' || nftId.length === 0) return null;
 
       const parts = nftId.split('/').filter(Boolean);
@@ -853,20 +821,20 @@ function runListingBot() {
       const tokenId = parts[parts.length - 1];
       const contract = parts[parts.length - 2];
 
-      const makerAddress = payload.maker?.address || payload.maker?.Address || payload.maker?.wallet_address || payload.maker || null;
-      const orderHash = payload.order_hash || payload.orderHash || null;
+      const makerAddress = payload?.maker?.address || payload?.maker?.wallet_address || payload?.maker || null;
+      const orderHash = payload?.order_hash || payload?.orderHash || null;
 
-      const tsStr = payload.event_timestamp || payload.eventTimestamp || payload.transaction?.timestamp || null;
+      const tsStr = payload?.event_timestamp || payload?.eventTimestamp || payload?.transaction?.timestamp || null;
       const tsSec = tsStr ? Math.floor(new Date(tsStr).getTime() / 1000) : Math.floor(Date.now() / 1000);
 
-      const paymentToken = payload.payment_token || payload.paymentToken || {};
+      const paymentToken = payload?.payment_token || payload?.paymentToken || {};
       const price =
-        payload.listing_price ??
-        payload.base_price ??
-        payload.starting_price ??
-        payload.start_price ??
-        payload.price ??
-        payload.current_price ??
+        payload?.listing_price ??
+        payload?.base_price ??
+        payload?.starting_price ??
+        payload?.start_price ??
+        payload?.price ??
+        payload?.current_price ??
         null;
 
       return {
@@ -875,7 +843,7 @@ function runListingBot() {
         order_hash: orderHash || `stream_${contract}_${tokenId}_${tsSec}`,
         maker: makerAddress,
         taker: null,
-        protocol_address: payload.protocol_address || payload.protocolAddress || '',
+        protocol_address: payload?.protocol_address || payload?.protocolAddress || '',
         payment: {
           quantity: price ?? '0',
           decimals: paymentToken.decimals ?? 18,
@@ -884,8 +852,8 @@ function runListingBot() {
         nft: {
           identifier: tokenId,
           contract,
-          name: item.metadata?.name || null,
-          opensea_url: item.permalink || null
+          name: item?.metadata?.name || null,
+          opensea_url: item?.permalink || item?.opensea_url || null
         }
       };
     } catch (e) {
@@ -895,13 +863,10 @@ function runListingBot() {
   }
 
   async function fetchEnsName(address) {
-    console.log(`Fetching ENS name for address: ${address}`);
     try {
       const ensName = await provider.lookupAddress(address);
-      console.log(`Fetched ENS name for address: ${address}: ${ensName}`);
       return ensName || address;
     } catch (error) {
-      console.error(`Failed to fetch ENS name for address ${address}:`, error);
       return address;
     }
   }
@@ -912,7 +877,6 @@ function runListingBot() {
   }
 
   async function classifyMoonCat(rescueIndex) {
-    console.log(`Classifying MoonCat for rescueIndex: ${rescueIndex}`);
     if (rescueIndex < 492) return 'Day 1 Rescue, 2017 Rescue';
     if (rescueIndex < 904) return 'Day 2 Rescue, 2017 Rescue';
     if (rescueIndex < 1569) return 'Week 1 Rescue, 2017 Rescue';
@@ -924,7 +888,6 @@ function runListingBot() {
   }
 
   async function getMoonCatImageURL(tokenId) {
-    console.log(`Fetching MoonCat image URL for tokenId: ${tokenId}`);
     try {
       const response = await fetch(`https://api.mooncat.community/regular-image/${tokenId}`);
       if (!response.ok) throw new Error(`Failed to fetch MoonCat image: ${response.statusText}`);
@@ -936,10 +899,8 @@ function runListingBot() {
   }
 
   async function getRealTokenIdFromWrapper(tokenId) {
-    console.log(`Fetching real token ID for wrapped tokenId: ${tokenId}`);
     try {
       const catId = await wrapperReadContract._tokenIDToCatID(tokenId);
-      console.log(`Fetched real token ID for wrapped tokenId: ${tokenId} - CatID: ${catId}`);
       return catId;
     } catch (error) {
       console.error(`Error fetching real token ID for wrapped token ${tokenId}:`, error);
@@ -948,7 +909,6 @@ function runListingBot() {
   }
 
   async function getOldWrapperImageAndDetails(tokenId) {
-    console.log(`Fetching details for old wrapped tokenId: ${tokenId}`);
     try {
       const realTokenIdHex = await getRealTokenIdFromWrapper(tokenId);
       if (!realTokenIdHex) throw new Error(`Failed to retrieve real token ID for ${tokenId}`);
@@ -961,7 +921,6 @@ function runListingBot() {
       const name = data.details.name ? data.details.name : `MoonCat #${rescueIndex}`;
       const isNamed = data.details.isNamed === "Yes";
       const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
-      console.log(`Fetched details for tokenId: ${tokenId} - Name: ${name}, RescueIndex: ${rescueIndex}, IsNamed: ${isNamed}`);
       return { imageUrl, name, rescueIndex, realTokenIdHex, isNamed };
     } catch (error) {
       console.error(`Error fetching details for old wrapped tokenId: ${tokenId}`, error);
@@ -979,14 +938,14 @@ function runListingBot() {
     const currentTime = Date.now();
     const oneHour = 3600000;
     if (cachedConversionRate && (currentTime - lastFetchedTime) < oneHour) {
-      console.log(`Using cached ETH to USD conversion rate: ${cachedConversionRate}`);
       return cachedConversionRate;
     }
+
+    if (!COINMARKETCAP_API_KEY) return null;
 
     const url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
     const params = new URLSearchParams({ 'symbol': 'ETH', 'convert': 'USD' });
 
-    console.log(`Fetching ETH to USD conversion rate...`);
     try {
       const response = await fetch(`${url}?${params}`, {
         method: 'GET',
@@ -996,7 +955,6 @@ function runListingBot() {
       const data = await response.json();
       cachedConversionRate = data.data.ETH.quote.USD.price;
       lastFetchedTime = currentTime;
-      console.log(`Fetched ETH to USD conversion rate: ${cachedConversionRate}`);
       return cachedConversionRate;
     } catch (error) {
       console.error('Error fetching ETH to USD conversion rate:', error);
@@ -1025,15 +983,10 @@ function runListingBot() {
     const currentTime = Date.now();
     if (!BLACKLIST[sellerAddress]) BLACKLIST[sellerAddress] = {};
     BLACKLIST[sellerAddress][tokenId] = currentTime;
-    console.log(`Added seller: ${sellerAddress}, tokenId: ${tokenId} to blacklist at ${new Date(currentTime).toISOString()}`);
   }
 
   async function sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
-    console.log(`Preparing to send Discord notification for listing tokenId: ${tokenId}`);
-    if (!messageText) {
-      console.error('Error: Message text is empty.');
-      return;
-    }
+    if (!messageText) return;
 
     const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
     const blurEmoji = '<:logo_blur:1202577510458728458>';
@@ -1066,14 +1019,10 @@ function runListingBot() {
     });
 
     if (!response.ok) throw new Error(`Error sending to Discord: ${response.statusText}`);
-    console.log(`Successfully sent listing announcement for tokenId: ${tokenId} to Discord.`);
   }
 
   async function sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName) {
-    if (!messageText) {
-      console.error('Error: Message text is empty.');
-      return;
-    }
+    if (!messageText) return;
 
     const openSeaEmoji = '<:logo_opensea:1202575710791933982>';
     const blurEmoji = '<:logo_blur:1202577510458728458>';
@@ -1106,22 +1055,15 @@ function runListingBot() {
     });
 
     if (!response.ok) throw new Error(`Error sending to Discord: ${response.statusText}`);
-    console.log(`Successfully sent old wrapper listing announcement for tokenId: ${tokenId} to Discord.`);
   }
 
   async function announceMoonCatListing(listing) {
     const sellerAddress = listing.maker;
     const nft = listing.nft || listing.asset;
     const tokenId = nft?.identifier;
-    if (!tokenId) {
-      console.error('Listing event missing token identifier. keys=', Object.keys(listing || {}));
-      return;
-    }
+    if (!tokenId) return;
 
-    if (isBlockedFullName(nft?.name)) {
-      console.log(`Blacklisted name detected ("${nft?.name}"); skipping listing announcement.`);
-      return;
-    }
+    if (isBlockedFullName(nft?.name)) return;
 
     if (isBlacklisted(sellerAddress, tokenId)) {
       console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted. Skipping announcement.`);
@@ -1129,13 +1071,11 @@ function runListingBot() {
     }
 
     const ethToUsdRate = await getEthToUsdConversionRate();
-    if (!ethToUsdRate) return;
-
-    const ethPriceRaw = listing.payment.quantity / (10 ** listing.payment.decimals);
+    const ethPriceRaw = Number(listing.payment.quantity) / (10 ** Number(listing.payment.decimals ?? 18));
     const formattedEthPrice = formatEthPrice(ethPriceRaw);
-    const usdPrice = (ethPriceRaw * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const usdPrice = ethToUsdRate ? (ethPriceRaw * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
 
-    const moonCatNameOrId = nft.name;
+    const moonCatNameOrId = nft.name || `MoonCat #${tokenId}`;
     const rescueIndex = Number(tokenId);
     const classification = await classifyMoonCat(rescueIndex);
     const imageUrl = await getMoonCatImageURL(tokenId);
@@ -1143,9 +1083,9 @@ function runListingBot() {
     const marketplaceName = listing.protocol_address ? "OpenSea" : "Blur";
     const listingUrl = marketplaceName === "Blur"
       ? `https://blur.io/asset/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`
-      : nft.opensea_url;
+      : (nft.opensea_url || `https://opensea.io/assets/ethereum/${MOONCATS_CONTRACT_ADDRESS}/${tokenId}`);
 
-    const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH ($${usdPrice} USD)\n\n[ ${classification} ]`;
+    const messageText = `${moonCatNameOrId} has just been listed for ${formattedEthPrice} ETH${usdPrice ? ` ($${usdPrice} USD)` : ''}\n\n[ ${classification} ]`;
 
     await sendToDiscord(tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
     updateBlacklist(sellerAddress, tokenId);
@@ -1155,10 +1095,7 @@ function runListingBot() {
     const sellerAddress = listing.maker;
     const nft = listing.nft || listing.asset;
     const tokenId = nft?.identifier;
-    if (!tokenId) {
-      console.error('Listing event missing token identifier. keys=', Object.keys(listing || {}));
-      return;
-    }
+    if (!tokenId) return;
 
     if (isBlacklisted(sellerAddress, tokenId)) {
       console.log(`Seller ${sellerAddress} with tokenId ${tokenId} is blacklisted. Skipping announcement.`);
@@ -1166,23 +1103,18 @@ function runListingBot() {
     }
 
     const ethToUsdRate = await getEthToUsdConversionRate();
-    if (!ethToUsdRate) return;
-
-    const ethPriceRaw = listing.payment.quantity / (10 ** listing.payment.decimals);
+    const ethPriceRaw = Number(listing.payment.quantity) / (10 ** Number(listing.payment.decimals ?? 18));
     const formattedEthPrice = formatEthPrice(ethPriceRaw);
-    const usdPrice = (ethPriceRaw * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const usdPrice = ethToUsdRate ? (ethPriceRaw * ethToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
 
     const { imageUrl, name, realTokenIdHex, rescueIndex, isNamed } = await getOldWrapperImageAndDetails(tokenId);
-    if (isNamed && isBlockedFullName(name)) {
-      console.log(`Blacklisted name detected ("${name}"); skipping old-wrapper listing announcement.`);
-      return;
-    }
+    if (isNamed && isBlockedFullName(name)) return;
 
     if (!imageUrl || rescueIndex == null) return;
 
     let marketplaceName = "OpenSea";
     let listingUrl = `https://opensea.io/assets/ethereum/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
-    if (!listing.protocol_address || listing.protocol_address.trim() === '') {
+    if (!listing.protocol_address || String(listing.protocol_address).trim() === '') {
       marketplaceName = "Blur";
       listingUrl = `https://blur.io/asset/${OLD_WRAPPER_CONTRACT_ADDRESS}/${tokenId}`;
     }
@@ -1192,7 +1124,7 @@ function runListingBot() {
 
     const messageText =
       `MoonCat #${rescueIndex}: ${displayCatId} wrapped as #${tokenId} has just been listed for ` +
-      `${formattedEthPrice} ETH ($${usdPrice} USD)\n\n[ ${classification} ]`;
+      `${formattedEthPrice} ETH${usdPrice ? ` ($${usdPrice} USD)` : ''}\n\n[ ${classification} ]`;
 
     await sendOldWrapperListingToDiscord(realTokenIdHex, rescueIndex, tokenId, messageText, imageUrl, listingUrl, sellerAddress, marketplaceName);
     updateBlacklist(sellerAddress, tokenId);
@@ -1225,23 +1157,19 @@ function runListingBot() {
   }
 
   async function fetchListingsFromOpenSea(initialRun = false) {
-    console.log('Fetching listings from OpenSea...');
     try {
       if (!OPENSEA_API_KEY) {
         console.error('[listing] LISTING_OPENSEA_API_KEY is missing. Listing bot disabled.');
         return { listings: [], rateLimited: false };
       }
 
-      const headers = {
-        'X-API-KEY': OPENSEA_API_KEY,
-        'Accept': 'application/json'
-      };
+      const headers = { 'X-API-KEY': OPENSEA_API_KEY, 'Accept': 'application/json' };
 
       const openseaAPIUrlMoonCats = `https://api.opensea.io/api/v2/events/collection/acclimatedmooncats?event_type=listing&limit=50`;
       const openseaAPIUrlOldWrapper = `https://api.opensea.io/api/v2/events/collection/wrapped-mooncatsrescue?event_type=listing&limit=50`;
 
       const moonResp = await fetchOpenSeaEvents(openseaAPIUrlMoonCats, headers, 'acclimatedmooncats listing');
-      await new Promise(resolve => setTimeout(resolve, BETWEEN_REQUESTS_MS));
+      await sleep(BETWEEN_REQUESTS_MS);
       const wrapResp = await fetchOpenSeaEvents(openseaAPIUrlOldWrapper, headers, 'wrapped-mooncatsrescue listing');
 
       const moonEvents = moonResp.events || [];
@@ -1298,7 +1226,6 @@ function runListingBot() {
         }
       }
 
-      console.log(`Fetched listings from OpenSea. count=${listings.length}`);
       return { listings, rateLimited };
     } catch (error) {
       console.error('Error fetching listings from OpenSea:', error);
@@ -1310,25 +1237,18 @@ function runListingBot() {
     if (isProcessingListings) return;
     isProcessingListings = true;
 
-    console.log('Processing listings queue...');
     LISTINGS_QUEUE.sort((a, b) => (a.event_timestamp || 0) - (b.event_timestamp || 0));
 
     while (LISTINGS_QUEUE.length > 0) {
       const listing = LISTINGS_QUEUE.shift();
       const orderHash = listing.order_hash;
 
-      if (PROCESSED_LISTINGS.has(orderHash)) {
-        console.log(`Listing already processed for orderHash: ${orderHash}`);
-        continue;
-      }
+      if (PROCESSED_LISTINGS.has(orderHash)) continue;
 
       try {
         const nft = listing.nft || listing.asset;
         const listingContract = (nft?.contract || '').toLowerCase();
-        if (!listingContract) {
-          console.error('Listing event missing nft/asset contract. keys=', Object.keys(listing || {}));
-          continue;
-        }
+        if (!listingContract) continue;
 
         if (listingContract === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
           await announceOldWrapperListing(listing);
@@ -1343,17 +1263,14 @@ function runListingBot() {
           PROCESSED_LISTINGS.delete(oldestProcessed);
         }
 
-        await new Promise(resolve => setTimeout(resolve, LISTING_PROCESS_DELAY_MS));
+        await sleep(LISTING_PROCESS_DELAY_MS);
       } catch (error) {
         console.error(`Error processing listing for orderHash: ${orderHash}`, error);
       }
     }
 
     isProcessingListings = false;
-
-    if (LISTINGS_QUEUE.length > 0) {
-      setImmediate(processListingsQueue);
-    }
+    if (LISTINGS_QUEUE.length > 0) setImmediate(processListingsQueue);
   }
 
   async function pollListingsOnce(initial) {
@@ -1370,7 +1287,6 @@ function runListingBot() {
       nextPollMs = Math.min(MAX_BACKOFF_MS, bumped);
       console.log(`OpenSea rate limited (429). backoffMs=${nextPollMs} consecutive429=${consecutive429}`);
     } else {
-      if (consecutive429 > 0) console.log(`OpenSea recovered. Resetting poll interval to base.`);
       consecutive429 = 0;
       nextPollMs = BASE_POLL_MS;
     }
@@ -1385,7 +1301,8 @@ function runListingBot() {
         const client = new OpenSeaStreamClient({
           network: Network.MAINNET,
           token: OPENSEA_API_KEY,
-          connectOptions: { transport: StreamWebSocket }
+          connectOptions: { transport: StreamWebSocket },
+          onError: (err) => console.error('[listing] Stream error:', err)
         });
 
         const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
@@ -1455,7 +1372,6 @@ async function runNameBot() {
   }
 
   async function getRescueIndex(catId) {
-    console.log(`Fetching MoonCat rescue index for catId: ${catId}`);
     try {
       const response = await fetch(`https://api.mooncat.community/traits/${catId}`);
       if (!response.ok) throw new Error(`Failed to fetch MoonCat rescue index: ${response.statusText}`);
@@ -1468,8 +1384,6 @@ async function runNameBot() {
   }
 
   async function sendNameToDiscord(catId, name, imageUrl, rescueIndex, transactionHash) {
-    console.log(`Sending naming event for catId: ${catId}, name: ${name} to Discord`);
-
     const etherScanEmoji = '<:logo_etherscan:1202580047765180498>';
     const txUrl = `https://etherscan.io/tx/${transactionHash}`;
 
@@ -1535,7 +1449,7 @@ async function runNameBot() {
   console.log('Name bot is running.');
 }
 
-runSalesBot();
+runSalesBotStream();
 runListingBot();
 runNameBot();
 
