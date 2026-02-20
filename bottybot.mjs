@@ -163,6 +163,59 @@ function createWeb3Provider(alchemyProjectId, getWeb3, label = 'ws') {
   return setupWebSocketProvider();
 }
 
+/**
+ * ONE shared OpenSea Stream client for both sales and listings
+ * This reduces websocket connections from 2 to 1 on your single dyno.
+ */
+function startUnifiedOpenSeaStream({ token, onStreamError, subscribeFn }) {
+  if (!OpenSeaStreamClient || !StreamWebSocket || !token) return null;
+
+  const client = new OpenSeaStreamClient({
+    network: Network ? Network.MAINNET : undefined,
+    token,
+    connectOptions: { transport: StreamWebSocket },
+    onError: onStreamError
+  });
+
+  if (typeof subscribeFn === 'function') subscribeFn(client);
+  return client;
+}
+
+function runSalesAndListingUnifiedStream({ salesAttach, listingAttach }) {
+  const SALES_OPENSEA_API_KEY = process.env.SALES_OPENSEA_API_KEY;
+  const LISTING_OPENSEA_API_KEY = process.env.LISTING_OPENSEA_API_KEY;
+
+  const token = SALES_OPENSEA_API_KEY || LISTING_OPENSEA_API_KEY;
+
+  if (!token) {
+    console.error('[stream] No OpenSea API key found (SALES_OPENSEA_API_KEY or LISTING_OPENSEA_API_KEY). Unified stream disabled.');
+    return null;
+  }
+
+  if (SALES_OPENSEA_API_KEY && LISTING_OPENSEA_API_KEY && SALES_OPENSEA_API_KEY !== LISTING_OPENSEA_API_KEY) {
+    console.error('[stream] Warning: SALES_OPENSEA_API_KEY and LISTING_OPENSEA_API_KEY differ. Unified stream can use only one token. Using SALES_OPENSEA_API_KEY.');
+  }
+
+  if (!OpenSeaStreamClient || !StreamWebSocket) {
+    console.error('[stream] Stream libraries not available. Unified stream disabled.');
+    return null;
+  }
+
+  const client = startUnifiedOpenSeaStream({
+    token,
+    onStreamError: (err) => {
+      console.error('[stream] Unified stream error:', err);
+    },
+    subscribeFn: (c) => {
+      if (typeof salesAttach === 'function') salesAttach(c);
+      if (typeof listingAttach === 'function') listingAttach(c);
+    }
+  });
+
+  if (client) console.log('[stream] Unified OpenSea Stream started (sales + listings).');
+  return client;
+}
+
 function runSalesBotStream() {
   let cachedConversionRate = null;
   let lastFetchedTime = 0;
@@ -723,18 +776,11 @@ function runSalesBotStream() {
     if (SALES_QUEUE.length > 0) setImmediate(processSalesQueue);
   }
 
-  function startSalesStream() {
-    if (!OpenSeaStreamClient || !StreamWebSocket || !OPENSEA_API_KEY) {
-      console.error('[sales] Stream not available or SALES_OPENSEA_API_KEY missing. Sales bot disabled.');
-      return;
-    }
-
-    const client = new OpenSeaStreamClient({
-      network: Network ? Network.MAINNET : undefined,
-      token: OPENSEA_API_KEY,
-      connectOptions: { transport: StreamWebSocket },
-      onError: (err) => console.error('[sales] Stream error:', err)
-    });
+  /**
+   * Attach sales subscriptions onto an existing OpenSea stream client
+   */
+  function attachSalesToStreamClient(client) {
+    if (!client) return;
 
     const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
 
@@ -753,10 +799,13 @@ function runSalesBotStream() {
     client.onItemSold('acclimatedmooncats', handlerFactory('acclimatedmooncats'));
     client.onItemSold('wrapped-mooncatsrescue', handlerFactory('wrapped-mooncatsrescue'));
 
-    console.log('Sales bot started (OpenSea Stream).');
+    console.log('Sales bot attached to Unified OpenSea Stream.');
   }
 
-  startSalesStream();
+  // Expose attach fn so we can register on the unified client
+  return {
+    attachSalesToStreamClient
+  };
 }
 
 function runListingBot() {
@@ -1294,38 +1343,32 @@ function runListingBot() {
     setTimeout(() => pollListingsOnce(false), nextPollMs);
   }
 
-  async function monitorListings() {
-    console.log('Monitoring listings...');
-    if (OpenSeaStreamClient && EventType && Network && StreamWebSocket && OPENSEA_API_KEY) {
-      try {
-        const client = new OpenSeaStreamClient({
-          network: Network.MAINNET,
-          token: OPENSEA_API_KEY,
-          connectOptions: { transport: StreamWebSocket },
-          onError: (err) => console.error('[listing] Stream error:', err)
-        });
+  /**
+   * Attach listing subscriptions onto an existing OpenSea stream client
+   * If stream is not available, we keep your existing HTTP polling fallback.
+   */
+  function attachListingToStreamClient(client) {
+    if (!client || !EventType) return false;
 
-        const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
+    const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
 
-        const handler = (event) => {
-          const normalized = normalizeStreamListingEvent(event);
-          if (!normalized) return;
-          if (firstRun && normalized.event_timestamp < cutoffSec) return;
-          LISTINGS_QUEUE.push(normalized);
-          processListingsQueue();
-        };
+    const handler = (event) => {
+      const normalized = normalizeStreamListingEvent(event);
+      if (!normalized) return;
+      if (firstRun && normalized.event_timestamp < cutoffSec) return;
+      LISTINGS_QUEUE.push(normalized);
+      processListingsQueue();
+    };
 
-        client.onEvents('acclimatedmooncats', [EventType.ITEM_LISTED], handler);
-        client.onEvents('wrapped-mooncatsrescue', [EventType.ITEM_LISTED], handler);
+    client.onEvents('acclimatedmooncats', [EventType.ITEM_LISTED], handler);
+    client.onEvents('wrapped-mooncatsrescue', [EventType.ITEM_LISTED], handler);
 
-        console.log('Listing bot is running (OpenSea Stream).');
-        firstRun = false;
-        return;
-      } catch (e) {
-        console.error('Failed to start OpenSea Stream for listings:', e);
-      }
-    }
+    console.log('Listing bot attached to Unified OpenSea Stream.');
+    firstRun = false;
+    return true;
+  }
 
+  async function monitorListingsWithoutStream() {
     console.log('Listing bot is running (HTTP polling).');
     if (firstRun) {
       firstRun = false;
@@ -1335,7 +1378,10 @@ function runListingBot() {
     }
   }
 
-  monitorListings();
+  return {
+    attachListingToStreamClient,
+    monitorListingsWithoutStream
+  };
 }
 
 async function runNameBot() {
@@ -1449,8 +1495,22 @@ async function runNameBot() {
   console.log('Name bot is running.');
 }
 
-runSalesBotStream();
-runListingBot();
+const salesBot = runSalesBotStream();
+const listingBot = runListingBot();
+
+const unifiedClient = runSalesAndListingUnifiedStream({
+  salesAttach: (client) => salesBot?.attachSalesToStreamClient?.(client),
+  listingAttach: (client) => listingBot?.attachListingToStreamClient?.(client)
+});
+
+if (!unifiedClient) {
+  console.error('[stream] Unified stream not running.');
+}
+
+if (!unifiedClient || !(listingBot?.attachListingToStreamClient?.(unifiedClient))) {
+  listingBot?.monitorListingsWithoutStream?.();
+}
+
 runNameBot();
 
 const PORT = process.env.PORT || 3000;
