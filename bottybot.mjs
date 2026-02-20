@@ -163,6 +163,151 @@ function createWeb3Provider(alchemyProjectId, getWeb3, label = 'ws') {
   return setupWebSocketProvider();
 }
 
+function createSharedOpenSeaStreamSupervisor(token) {
+  if (!OpenSeaStreamClient || !StreamWebSocket || !token || !Network) return null;
+
+  let client = null;
+  let restarting = false;
+  let backoffAttempt = 0;
+  let lastEventAtMs = Date.now();
+
+  const STREAM_SILENCE_RESTART_MS = 4 * 60 * 1000;
+  const WATCHDOG_TICK_MS = 60 * 1000;
+  const BASE_BACKOFF_MS = 1500;
+  const MAX_BACKOFF_MS = 60 * 1000;
+
+  const subs = [];
+
+  const shortErr = (err) => {
+    if (!err) return 'unknown error';
+    if (err instanceof Error) return err.message || String(err);
+    if (typeof err === 'string') return err;
+    const msg = err?.message || err?.error?.message || err?.type || '';
+    if (msg) return String(msg);
+    try { return JSON.stringify(err); } catch { return String(err); }
+  };
+
+  const nextBackoffMs = () => {
+    const exp = Math.min(6, backoffAttempt);
+    const jitter = Math.floor(Math.random() * 750);
+    return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * (2 ** exp) + jitter);
+  };
+
+  const markAlive = () => {
+    lastEventAtMs = Date.now();
+    backoffAttempt = 0;
+  };
+
+  const buildClient = () => {
+    return new OpenSeaStreamClient({
+      network: Network.MAINNET,
+      token,
+      connectOptions: { transport: StreamWebSocket },
+      onError: (err) => {
+        const msg = shortErr(err);
+        console.error('[stream] error:', msg);
+        scheduleRestart(msg);
+      }
+    });
+  };
+
+  const wireAll = () => {
+    for (const s of subs) {
+      try {
+        if (s.kind === 'sold') {
+          client.onItemSold(s.slug, (ev) => {
+            markAlive();
+            s.handler(ev);
+          });
+        } else if (s.kind === 'events') {
+          client.onEvents(s.slug, s.eventTypes, (ev) => {
+            markAlive();
+            s.handler(ev);
+          });
+        }
+      } catch (e) {
+        console.error('[stream] failed to wire sub:', shortErr(e));
+      }
+    }
+  };
+
+  const scheduleRestart = (reason) => {
+    if (restarting) return;
+    restarting = true;
+
+    backoffAttempt += 1;
+    const waitMs = nextBackoffMs();
+    console.error(`[stream] restart scheduled in ${Math.round(waitMs / 1000)}s. reason=${reason}`);
+
+    setTimeout(() => {
+      try {
+        client?.disconnect?.();
+      } catch {}
+      try {
+        client = buildClient();
+        wireAll();
+        console.log('[stream] restarted.');
+      } catch (e) {
+        console.error('[stream] restart failed:', shortErr(e));
+      } finally {
+        restarting = false;
+      }
+    }, waitMs);
+  };
+
+  client = buildClient();
+
+  setInterval(() => {
+    const silentFor = Date.now() - lastEventAtMs;
+    if (silentFor > STREAM_SILENCE_RESTART_MS) {
+      scheduleRestart(`silent_for_ms=${silentFor}`);
+    }
+  }, WATCHDOG_TICK_MS);
+
+  const api = {
+    markAlive,
+    getLastEventAtMs: () => lastEventAtMs,
+    onItemSold: (slug, handler) => {
+      subs.push({ kind: 'sold', slug, handler });
+      try {
+        client.onItemSold(slug, (ev) => {
+          markAlive();
+          handler(ev);
+        });
+      } catch (e) {
+        console.error('[stream] onItemSold failed:', shortErr(e));
+        scheduleRestart('onItemSold_failed');
+      }
+    },
+    onEvents: (slug, eventTypes, handler) => {
+      subs.push({ kind: 'events', slug, eventTypes, handler });
+      try {
+        client.onEvents(slug, eventTypes, (ev) => {
+          markAlive();
+          handler(ev);
+        });
+      } catch (e) {
+        console.error('[stream] onEvents failed:', shortErr(e));
+        scheduleRestart('onEvents_failed');
+      }
+    }
+  };
+
+  return api;
+}
+
+const SHARED_STREAM = {
+  supervisor: null,
+  token: null,
+  get(token) {
+    if (!token) return null;
+    if (this.supervisor && this.token === token) return this.supervisor;
+    this.token = token;
+    this.supervisor = createSharedOpenSeaStreamSupervisor(token);
+    return this.supervisor;
+  }
+};
+
 function runSalesBotStream() {
   let cachedConversionRate = null;
   let lastFetchedTime = 0;
@@ -724,17 +869,16 @@ function runSalesBotStream() {
   }
 
   function startSalesStream() {
-    if (!OpenSeaStreamClient || !StreamWebSocket || !OPENSEA_API_KEY) {
-      console.error('[sales] Stream not available or SALES_OPENSEA_API_KEY missing. Sales bot disabled.');
+    if (!OPENSEA_API_KEY) {
+      console.error('[sales] SALES_OPENSEA_API_KEY missing. Sales bot disabled.');
       return;
     }
 
-    const client = new OpenSeaStreamClient({
-      network: Network ? Network.MAINNET : undefined,
-      token: OPENSEA_API_KEY,
-      connectOptions: { transport: StreamWebSocket },
-      onError: (err) => console.error('[sales] Stream error:', err)
-    });
+    const supervisor = SHARED_STREAM.get(OPENSEA_API_KEY);
+    if (!supervisor) {
+      console.error('[sales] Stream not available. Sales stream disabled.');
+      return;
+    }
 
     const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
 
@@ -750,10 +894,57 @@ function runSalesBotStream() {
       processSalesQueue();
     };
 
-    client.onItemSold('acclimatedmooncats', handlerFactory('acclimatedmooncats'));
-    client.onItemSold('wrapped-mooncatsrescue', handlerFactory('wrapped-mooncatsrescue'));
+    supervisor.onItemSold('acclimatedmooncats', handlerFactory('acclimatedmooncats'));
+    supervisor.onItemSold('wrapped-mooncatsrescue', handlerFactory('wrapped-mooncatsrescue'));
 
     console.log('Sales bot started (OpenSea Stream).');
+
+    const SALES_POLL_MS = 90 * 1000;
+    const SALES_POLL_SILENCE_THRESHOLD_MS = 2 * 60 * 1000;
+
+    setInterval(async () => {
+      const last = supervisor.getLastEventAtMs ? supervisor.getLastEventAtMs() : Date.now();
+      const silentFor = Date.now() - last;
+      if (silentFor < SALES_POLL_SILENCE_THRESHOLD_MS) return;
+
+      const pollOne = async (slug) => {
+        const { events, status, body } = await fetchOpenSeaSaleEvents(slug);
+
+        if (status === 429) {
+          console.log(`[sales] Poll 429 for ${slug}. backing off.`);
+          return;
+        }
+        if (!events || events.length === 0) {
+          console.log(`[sales] Poll: no events for ${slug}. status=${status} body=${body}`);
+          return;
+        }
+
+        for (const e of events) {
+          const txHash = String(e?.transaction || '').toLowerCase();
+          if (!txHash) continue;
+
+          const key = `${slug}:${txHash}`;
+          if (PROCESSED_SALES.has(key)) continue;
+
+          SALES_QUEUE.push({
+            slug,
+            txHash,
+            seller: String(e?.seller || '').toLowerCase() || null,
+            buyer: String(e?.buyer || '').toLowerCase() || null,
+            protocolAddress: e?.protocol_address || '',
+            contractAddress: String(e?.nft?.contract || '').toLowerCase() || null,
+            tokenId: e?.nft?.identifier?.toString() || null,
+            event_timestamp: Number(e?.event_timestamp || 0)
+          });
+        }
+
+        processSalesQueue();
+      };
+
+      await pollOne('acclimatedmooncats');
+      await sleep(1200);
+      await pollOne('wrapped-mooncatsrescue');
+    }, SALES_POLL_MS);
   }
 
   startSalesStream();
@@ -1296,15 +1487,9 @@ function runListingBot() {
 
   async function monitorListings() {
     console.log('Monitoring listings...');
-    if (OpenSeaStreamClient && EventType && Network && StreamWebSocket && OPENSEA_API_KEY) {
-      try {
-        const client = new OpenSeaStreamClient({
-          network: Network.MAINNET,
-          token: OPENSEA_API_KEY,
-          connectOptions: { transport: StreamWebSocket },
-          onError: (err) => console.error('[listing] Stream error:', err)
-        });
-
+    if (OPENSEA_API_KEY && EventType) {
+      const supervisor = SHARED_STREAM.get(OPENSEA_API_KEY);
+      if (supervisor) {
         const cutoffSec = Math.floor((Date.now() - 3600000) / 1000);
 
         const handler = (event) => {
@@ -1315,14 +1500,15 @@ function runListingBot() {
           processListingsQueue();
         };
 
-        client.onEvents('acclimatedmooncats', [EventType.ITEM_LISTED], handler);
-        client.onEvents('wrapped-mooncatsrescue', [EventType.ITEM_LISTED], handler);
-
-        console.log('Listing bot is running (OpenSea Stream).');
-        firstRun = false;
-        return;
-      } catch (e) {
-        console.error('Failed to start OpenSea Stream for listings:', e);
+        try {
+          supervisor.onEvents('acclimatedmooncats', [EventType.ITEM_LISTED], handler);
+          supervisor.onEvents('wrapped-mooncatsrescue', [EventType.ITEM_LISTED], handler);
+          console.log('Listing bot is running (OpenSea Stream).');
+          firstRun = false;
+          return;
+        } catch (e) {
+          console.error('Failed to start OpenSea Stream for listings:', e);
+        }
       }
     }
 
