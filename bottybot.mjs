@@ -243,6 +243,73 @@ function runSalesBot() {
   const TRANSFER_PROCESS_DELAY_MS = 45000;
   const DISCORD_MESSAGE_DELAY_MS = 1000;
 
+  const SALES_MAX_ANNOUNCED_PER_24H = Number(process.env.SALES_MAX_ANNOUNCED_PER_24H || 2);
+  const SALES_BLACKLIST_WINDOW_MS = 86400000;
+
+  const SALES_HISTORY = {};
+  const SALES_BLACKLIST = {};
+
+  function getSaleKey(tokenId, contractAddress) {
+    return `${contractAddress.toLowerCase()}:${tokenId.toString()}`;
+  }
+
+  function pruneSaleTracking(key) {
+    const now = Date.now();
+
+    if (!SALES_HISTORY[key]) SALES_HISTORY[key] = [];
+
+    SALES_HISTORY[key] = SALES_HISTORY[key].filter(
+      (timestamp) => (now - timestamp) < SALES_BLACKLIST_WINDOW_MS
+    );
+
+    if (
+      SALES_BLACKLIST[key] &&
+      (now - SALES_BLACKLIST[key]) >= SALES_BLACKLIST_WINDOW_MS
+    ) {
+      delete SALES_BLACKLIST[key];
+    }
+
+    if (SALES_HISTORY[key].length === 0 && !SALES_BLACKLIST[key]) {
+      delete SALES_HISTORY[key];
+    }
+
+    return now;
+  }
+
+  function isSaleBlacklisted(tokenId, contractAddress) {
+    const key = getSaleKey(tokenId, contractAddress);
+    const now = pruneSaleTracking(key);
+
+    if (
+      SALES_BLACKLIST[key] &&
+      (now - SALES_BLACKLIST[key]) < SALES_BLACKLIST_WINDOW_MS
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function registerSaleOrBlacklist(tokenId, contractAddress) {
+    const key = getSaleKey(tokenId, contractAddress);
+    const now = pruneSaleTracking(key);
+
+    if (!SALES_HISTORY[key]) SALES_HISTORY[key] = [];
+    SALES_HISTORY[key].push(now);
+
+    const count24h = SALES_HISTORY[key].length;
+
+    if (count24h > SALES_MAX_ANNOUNCED_PER_24H) {
+      SALES_BLACKLIST[key] = now;
+      console.log(
+        `[sales-blacklist] Token ${tokenId} on ${contractAddress} hit ${count24h} sales in 24h. Blacklisted for 24h.`
+      );
+      return { blacklisted: true, count24h };
+    }
+
+    return { blacklisted: false, count24h };
+  }
+
   async function getRealTokenIdFromWrapper(tokenId, retries = 3) {
     console.log(`Using Alchemy provider to fetch real token ID for token: ${tokenId} with retries: ${retries}`);
     for (let attempt = 1; attempt <= retries; attempt++) {
@@ -653,35 +720,59 @@ function runSalesBot() {
     console.log('Processing sales queue...');
     while (salesQueue.length > 0) {
       const sale = salesQueue.shift();
+      const queuedContractAddress = sale.contractAddress.toLowerCase();
+
       console.log(`Processing sale for tokenId: ${sale.tokenId}`);
 
       try {
-        const contractAddress = sale.contractAddress.toLowerCase();
-        const saleData = await fetchSaleDataFromOpenSea(sale.tokenId, sale.sellerAddress, contractAddress);
+        if (isSaleBlacklisted(sale.tokenId, queuedContractAddress)) {
+          console.log(
+            `[sales-blacklist] Skipping tokenId ${sale.tokenId} on contract ${queuedContractAddress} because it is currently blacklisted.`
+          );
+          continue;
+        }
 
-        if (saleData) {
-          if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
-            await announceOldWrapperSale(
-              saleData.tokenId,
-              saleData.ethPrice,
-              saleData.transactionUrl,
-              saleData.payment,
-              saleData.protocolAddress,
-              saleData.toAddress
-            );
-          } else if (contractAddress === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
-            await announceMoonCatSale(
-              saleData.tokenId,
-              saleData.ethPrice,
-              saleData.transactionUrl,
-              saleData.payment,
-              saleData.protocolAddress,
-              saleData.toAddress,
-              saleData.fromAddress
-            );
-          } else {
-            console.error(`Unrecognized contract address: ${contractAddress}`);
-          }
+        const saleData = await fetchSaleDataFromOpenSea(
+          sale.tokenId,
+          sale.sellerAddress,
+          queuedContractAddress
+        );
+
+        if (!saleData) {
+          continue;
+        }
+
+        const contractAddress = saleData.contractAddress.toLowerCase();
+        const saleGate = registerSaleOrBlacklist(saleData.tokenId, contractAddress);
+
+        if (saleGate.blacklisted) {
+          console.log(
+            `[sales-blacklist] Suppressing announcement for tokenId ${saleData.tokenId} on contract ${contractAddress}.`
+          );
+          continue;
+        }
+
+        if (contractAddress === OLD_WRAPPER_CONTRACT_ADDRESS.toLowerCase()) {
+          await announceOldWrapperSale(
+            saleData.tokenId,
+            saleData.ethPrice,
+            saleData.transactionUrl,
+            saleData.payment,
+            saleData.protocolAddress,
+            saleData.toAddress
+          );
+        } else if (contractAddress === MOONCATS_CONTRACT_ADDRESS.toLowerCase()) {
+          await announceMoonCatSale(
+            saleData.tokenId,
+            saleData.ethPrice,
+            saleData.transactionUrl,
+            saleData.payment,
+            saleData.protocolAddress,
+            saleData.toAddress,
+            saleData.fromAddress
+          );
+        } else {
+          console.error(`Unrecognized contract address: ${contractAddress}`);
         }
       } catch (error) {
         console.error(`Error processing sale for tokenId: ${sale.tokenId}`, error);
