@@ -1516,6 +1516,19 @@ async function runNameBot() {
   const ALCHEMY_PROJECT_ID = process.env.NAMING_ALCHEMY_PROJECT_ID;
   const DISCORD_WEBHOOK_URL = process.env.NAMING_DISCORD_WEBHOOK_URL;
 
+  const ONE_DAY_MS = 86400000;
+
+  const NAMING_MAX_PER_TX = Number(process.env.NAMING_MAX_PER_TX || 1);
+  const NAMING_MAX_PER_CAT_PER_24H = Number(process.env.NAMING_MAX_PER_CAT_PER_24H || 2);
+  const NAMING_CAT_COOLDOWN_MS = Number(process.env.NAMING_CAT_COOLDOWN_MS || 600000); // 10 minutes
+  const NAMING_DEDUPE_WINDOW_MS = Number(process.env.NAMING_DEDUPE_WINDOW_MS || ONE_DAY_MS);
+
+  const seenNamingEvents = new Map();
+  const txAnnouncementCounts = new Map();
+  const catAnnouncementHistory = new Map();
+  const lastCatAnnouncement = new Map();
+  const catNameDedupe = new Map();
+
   let nameWeb3;
   nameWeb3 = new Web3(
     createWeb3Provider(
@@ -1539,10 +1552,124 @@ async function runNameBot() {
     }
   ];
 
-  const moonCatsNamingContract = new nameWeb3.eth.Contract(moonCatsNamingAbi, MOONCATS_NAMING_CONTRACT_ADDRESS);
+  const moonCatsNamingContract = new nameWeb3.eth.Contract(
+    moonCatsNamingAbi,
+    MOONCATS_NAMING_CONTRACT_ADDRESS
+  );
 
   function formatCatId(catId) {
     return `0x${catId.slice(2, 12)}`;
+  }
+
+  function isZeroBytes32(value) {
+    return typeof value === 'string' && /^0x0{64}$/i.test(value);
+  }
+
+  function normalizeName(name) {
+    if (typeof name !== 'string') return '';
+    return name
+      .normalize('NFKC')
+      .replace(/\u0000/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function isAnnouncementWorthyName(name) {
+    if (!name) return false;
+
+    // Requires at least one letter or number.
+    // This blocks blank names, spaces, null bytes, and pure punctuation spam.
+    return /[\p{L}\p{N}]/u.test(name);
+  }
+
+  function pruneOldNamingTracking(now) {
+    for (const [key, timestamp] of seenNamingEvents.entries()) {
+      if ((now - timestamp) > ONE_DAY_MS) seenNamingEvents.delete(key);
+    }
+
+    for (const [key, data] of txAnnouncementCounts.entries()) {
+      if ((now - data.timestamp) > ONE_DAY_MS) txAnnouncementCounts.delete(key);
+    }
+
+    for (const [catKey, timestamps] of catAnnouncementHistory.entries()) {
+      const fresh = timestamps.filter((timestamp) => (now - timestamp) < ONE_DAY_MS);
+      if (fresh.length === 0) {
+        catAnnouncementHistory.delete(catKey);
+      } else {
+        catAnnouncementHistory.set(catKey, fresh);
+      }
+    }
+
+    for (const [catKey, timestamp] of lastCatAnnouncement.entries()) {
+      if ((now - timestamp) > ONE_DAY_MS) lastCatAnnouncement.delete(catKey);
+    }
+
+    for (const [key, timestamp] of catNameDedupe.entries()) {
+      if ((now - timestamp) > NAMING_DEDUPE_WINDOW_MS) catNameDedupe.delete(key);
+    }
+  }
+
+  function shouldAnnounceNaming({ formattedCatId, decodedName, transactionHash, logIndex }) {
+    const now = Date.now();
+    pruneOldNamingTracking(now);
+
+    const eventKey = `${transactionHash}:${logIndex ?? 'unknown'}`;
+    if (seenNamingEvents.has(eventKey)) {
+      return { ok: false, reason: `Duplicate naming event ${eventKey}; skipping.` };
+    }
+    seenNamingEvents.set(eventKey, now);
+
+    const txKey = transactionHash.toLowerCase();
+    const txData = txAnnouncementCounts.get(txKey) || { count: 0, timestamp: now };
+
+    if (txData.count >= NAMING_MAX_PER_TX) {
+      return {
+        ok: false,
+        reason: `Transaction ${transactionHash} already announced ${txData.count} naming event(s); skipping extra logs.`
+      };
+    }
+
+    const catKey = formattedCatId.toLowerCase();
+    const lastForCat = lastCatAnnouncement.get(catKey) || 0;
+
+    if ((now - lastForCat) < NAMING_CAT_COOLDOWN_MS) {
+      return {
+        ok: false,
+        reason: `MoonCat ${formattedCatId} was announced recently; cooldown active.`
+      };
+    }
+
+    const catHistory = catAnnouncementHistory.get(catKey) || [];
+    const freshCatHistory = catHistory.filter((timestamp) => (now - timestamp) < ONE_DAY_MS);
+
+    if (freshCatHistory.length >= NAMING_MAX_PER_CAT_PER_24H) {
+      return {
+        ok: false,
+        reason: `MoonCat ${formattedCatId} already had ${freshCatHistory.length} naming announcement(s) in 24h.`
+      };
+    }
+
+    const catNameKey = `${catKey}:${decodedName.toLowerCase()}`;
+    const lastSameCatName = catNameDedupe.get(catNameKey) || 0;
+
+    if ((now - lastSameCatName) < NAMING_DEDUPE_WINDOW_MS) {
+      return {
+        ok: false,
+        reason: `MoonCat ${formattedCatId} was already announced with name "${decodedName}" recently.`
+      };
+    }
+
+    txAnnouncementCounts.set(txKey, {
+      count: txData.count + 1,
+      timestamp: now
+    });
+
+    freshCatHistory.push(now);
+    catAnnouncementHistory.set(catKey, freshCatHistory);
+    lastCatAnnouncement.set(catKey, now);
+    catNameDedupe.set(catNameKey, now);
+
+    return { ok: true, reason: 'Allowed.' };
   }
 
   async function getRescueIndex(catId) {
@@ -1595,12 +1722,22 @@ async function runNameBot() {
       try {
         const formattedCatId = formatCatId(catId);
 
+        if (isZeroBytes32(catName)) {
+          console.log(`Blank bytes32(0) name detected for ${formattedCatId}; skipping naming announcement.`);
+          return;
+        }
+
         let decodedName = '';
         try {
           const rawName = nameWeb3.utils.hexToUtf8(catName);
-          decodedName = rawName.replace(/\u0000/g, '').trim();
+          decodedName = normalizeName(rawName);
         } catch (e) {
           console.error('Failed to decode catName bytes32 to utf8:', e);
+          return;
+        }
+
+        if (!isAnnouncementWorthyName(decodedName)) {
+          console.log(`Empty or non-meaningful MoonCat name detected for ${formattedCatId}; skipping.`);
           return;
         }
 
@@ -1609,12 +1746,30 @@ async function runNameBot() {
           return;
         }
 
+        const gate = shouldAnnounceNaming({
+          formattedCatId,
+          decodedName,
+          transactionHash: event.transactionHash,
+          logIndex: event.logIndex
+        });
+
+        if (!gate.ok) {
+          console.log(`[naming-anti-spam] ${gate.reason}`);
+          return;
+        }
+
         const rescueIndex = await getRescueIndex(formattedCatId);
-        if (!rescueIndex) return;
+        if (rescueIndex === null || rescueIndex === undefined) return;
 
         const imageUrl = `https://api.mooncat.community/regular-image/${rescueIndex}`;
 
-        await sendNameToDiscord(formattedCatId, decodedName, imageUrl, rescueIndex, event.transactionHash);
+        await sendNameToDiscord(
+          formattedCatId,
+          decodedName,
+          imageUrl,
+          rescueIndex,
+          event.transactionHash
+        );
       } catch (error) {
         console.error('Error handling CatNamed event:', error);
       }
@@ -1623,7 +1778,7 @@ async function runNameBot() {
       console.error('Error receiving CatNamed event:', error);
     });
 
-  console.log('Name bot is running.');
+  console.log('Name bot is running with anti-spam filters.');
 }
 
 runSalesBot();
